@@ -1,5 +1,6 @@
 %{
   "brod": {:hex, :brod, "3.7.9", "ba4826a124464560b7da97a10589cdcf41d0e52cbfd5d55586816451b495de9e", [:make, :rebar, :rebar3], [{:kafka_protocol, "2.2.8", [hex: :kafka_protocol, repo: "hexpm", optional: false]}, {:supervisor3, "1.1.8", [hex: :supervisor3, repo: "hexpm", optional: false]}], "hexpm"},
+  "checkov": {:hex, :checkov, "0.4.0", "a1974a5885f62f8943a9059f0d5252b222271e0e58dd872ffb60323f2e376433", [:mix], [], "hexpm"},
   "crc32cer": {:hex, :crc32cer, "0.1.3", "8984906c4b4fae6aa292c48f286a1c83b19ad44bd102287acb94d696015967ce", [:make, :rebar, :rebar3], [], "hexpm"},
   "divo": {:hex, :divo, "1.1.4", "ead2cd0a060c5d6a670b1981837e59783a69b0aec01dea3d03dac981f1908d30", [:mix], [{:jason, "~> 1.1", [hex: :jason, repo: "hexpm", optional: false]}, {:patiently, "~> 0.2", [hex: :patiently, repo: "hexpm", optional: false]}], "hexpm"},
   "divo_kafka": {:hex, :divo_kafka, "0.1.0", "e32b3526abd4af52e6e82460e2fb5e48eb0be4cc633a4985435e774ded61c0f8", [:mix], [{:divo, "~> 1.1", [hex: :divo, repo: "hexpm:smartcolumbus_os", optional: false]}], "hexpm:smartcolumbus_os"},

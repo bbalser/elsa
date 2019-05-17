@@ -26,12 +26,15 @@ defmodule Elsa.Consumer.MessageHandler do
 
   def handle_message(topic, partition, message, state) do
     transformed_message = transform_message(topic, partition, message)
+
     {:ok, handler_state} = apply(state.handler, :handle_message, [transformed_message, state.handler_state])
+
     {:ok, %{state | handler_state: handler_state}}
   end
 
   defp transform_message(topic, partition, message) do
     {:kafka_message, offset, key, value, _, _, _} = message
+
     %{
       topic: topic,
       partition: partition,
@@ -40,5 +43,4 @@ defmodule Elsa.Consumer.MessageHandler do
       value: value
     }
   end
-
 end

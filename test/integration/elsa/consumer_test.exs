@@ -17,7 +17,8 @@ defmodule Elsa.ConsumerTest do
 
     send_messages(["message1"])
 
-    assert_receive {:message, %{topic: "elsa-topic", partition: 0, offset: _, key: "", value: "message1"}}, 5_000
+    assert_receive {:message, %{topic: "elsa-topic", partition: 0, offset: _, key: "", value: "message1"}},
+                   5_000
   end
 
   test "Elsa.Consumer will hand messages to the handler without state" do
@@ -37,7 +38,11 @@ defmodule Elsa.ConsumerTest do
       fn ->
         messages = Testing.ExampleMessageHandlerWithoutState.get_messages()
         Logger.info("Received messages: #{inspect(messages)}")
-        match?([%{topic: "elsa-topic", partition: 0, offset: _offset, key: "", value: "message2"}], messages)
+
+        match?(
+          [%{topic: "elsa-topic", partition: 0, offset: _offset, key: "", value: "message2"}],
+          messages
+        )
       end,
       dwell: 500,
       max_tries: 20

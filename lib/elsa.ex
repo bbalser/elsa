@@ -3,16 +3,17 @@ defmodule Elsa do
   Documentation for Elsa.
   """
 
-  @doc """
-  Hello world.
+  defdelegate list_topics(endpoints), to: Elsa.Topic, as: :list
 
-  ## Examples
+  defdelegate create_topic(endpoints, topic, opts \\ []), to: Elsa.Topic, as: :create
 
-      iex> Elsa.hello()
-      :world
+  def delete_topic() do
+  end
 
-  """
-  def hello do
-    :world
+  def fetch() do
+  end
+
+  defmodule ConnectError do
+    defexception [:message]
   end
 end

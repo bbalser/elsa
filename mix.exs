@@ -25,9 +25,9 @@ defmodule Elsa.MixProject do
     [
       {:brod, "~> 3.7"},
       {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
-      {:divo_kafka, "~> 0.1.0",
-       organization: "smartcolumbus_os", only: [:dev, :test, :integration]},
-      {:placebo, "~> 1.2", only: [:test]}
+      {:divo_kafka, "~> 0.1.0", organization: "smartcolumbus_os", only: [:dev, :test, :integration]},
+      {:placebo, "~> 1.2", only: [:dev, :test]},
+      {:checkov, "~> 0.4.0", only: [:test]}
     ]
   end
 
