@@ -26,10 +26,22 @@ defmodule Elsa.Topic do
       version = Elsa.Util.get_api_version(connection, :create_topics)
       topic_request = :kpro_req_lib.create_topics(version, [create_topic_args], %{timeout: 5_000})
 
-      case :kpro.request_sync(connection, topic_request, 5_000) do
-        {:ok, _topic_response} -> :ok
-        result -> result
-      end
+      send_request(connection, topic_request, 5_000)
     end)
+  end
+
+  defp send_request(connection, request, timeout) do
+    case :kpro.request_sync(connection, request, timeout) do
+      {:ok, response} -> check_response(response)
+      result -> result
+    end
+  end
+
+  defp check_response(response) do
+    message = kpro_rsp(response, :msg)
+    case Enum.find(message.topic_errors, fn error -> error.error_code != :no_error end) do
+      nil -> :ok
+      error -> {:error, error.error_message}
+    end
   end
 end
