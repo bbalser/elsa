@@ -15,10 +15,10 @@ defmodule Elsa.ConsumerTest do
       handler_init_args: %{pid: self()}
     )
 
-    send_messages(["message1"])
+    send_messages(["message1", "message2"])
 
-    assert_receive {:message, %{topic: "elsa-topic", partition: 0, offset: _, key: "", value: "message1"}},
-                   5_000
+    assert_receive {:message, %{topic: "elsa-topic", partition: 0, offset: _, key: "", value: "message1"}}, 5_000
+    assert_receive {:message, %{topic: "elsa-topic", partition: 1, offset: _, key: "", value: "message2"}}, 5_000
   end
 
   test "Elsa.Consumer will hand messages to the handler without state" do
@@ -53,8 +53,11 @@ defmodule Elsa.ConsumerTest do
     :brod.start_link_client([{'localhost', 9092}], :test_client)
     :brod.start_producer(:test_client, "elsa-topic", [])
 
-    Enum.each(messages, fn msg ->
-      :brod.produce_sync(:test_client, "elsa-topic", 0, "", msg)
+    messages
+    |> Enum.with_index()
+    |> Enum.each(fn {msg, index} ->
+      partition = rem(index, 2)
+      :brod.produce_sync(:test_client, "elsa-topic", partition, "", msg)
     end)
   end
 end
@@ -67,6 +70,8 @@ defmodule Testing.ExampleMessageHandlerWithState do
   end
 
   def handle_message(message, state) do
+    IO.inspect(message, label: "Message")
+    IO.inspect(self(), label: "self")
     send(state.pid, {:message, message})
 
     {:ok, state}
