@@ -9,7 +9,7 @@ defmodule Elsa.TopicTest do
       allow Elsa.Util.with_connection(any(), any()), return: :not_sure_yet
       allow Elsa.Util.get_api_version(any(), :create_topics), return: :version
       allow :kpro_req_lib.create_topics(any(), any(), any()), return: :topic_request
-      allow :kpro.request_sync(:connection, any(), any()), return: {:error,  "some failure"}
+      allow :kpro.request_sync(:connection, any(), any()), return: {:error, "some failure"}
 
       Elsa.create_topic(:endpoints, "topic-to-create")
 
@@ -24,6 +24,7 @@ defmodule Elsa.TopicTest do
       allow Elsa.Util.with_connection(any(), any()), return: :not_sure_yet
       allow Elsa.Util.get_api_version(any(), :create_topics), return: :version
       allow :kpro_req_lib.create_topics(any(), any(), any()), return: :topic_request
+
       message = %{
         topic_errors: [
           %{
@@ -33,6 +34,7 @@ defmodule Elsa.TopicTest do
           }
         ]
       }
+
       kpro_rsp = Elsa.Topic.kpro_rsp(api: :create_topics, vsn: 2, msg: message)
       allow :kpro.request_sync(:connection, any(), any()), return: {:ok, kpro_rsp}
 

@@ -50,7 +50,7 @@ defmodule Elsa.UtilTest do
       where([
         [:reason, :message],
         ["unable to connect", "unable to connect"],
-        [{:econnrefused, [1,2]}, inspect({:econnrefused, [1,2]})],
+        [{:econnrefused, [1, 2]}, inspect({:econnrefused, [1, 2]})],
         [RuntimeError.exception("jerks"), Exception.format(:error, RuntimeError.exception("jerks"))]
       ])
     end

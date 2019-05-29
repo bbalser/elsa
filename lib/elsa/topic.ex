@@ -39,6 +39,7 @@ defmodule Elsa.Topic do
 
   defp check_response(response) do
     message = kpro_rsp(response, :msg)
+
     case Enum.find(message.topic_errors, fn error -> error.error_code != :no_error end) do
       nil -> :ok
       error -> {:error, error.error_message}
