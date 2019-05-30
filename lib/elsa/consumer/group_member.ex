@@ -29,21 +29,35 @@ defmodule Elsa.Consumer.GroupMember do
     topics = Keyword.fetch!(opts, :topics)
     config = Keyword.get(opts, :config, [])
 
-    Enum.each(topics, fn topic -> :brod.start_consumer(client, topic, []) end)
+    state = %{
+      client: client,
+      consumer_group: consumer_group,
+      topics: topics,
+      config: config,
+      group_coordinator_pid: nil
+    }
 
-    {:ok, group_coordinator_pid} =
-      :brod_group_coordinator.start_link(client, consumer_group, topics, config, __MODULE__, self())
-
-    {:ok,
-     %{
-       client: client,
-       consumer_group: consumer_group,
-       topics: topics,
-       config: config,
-       group_coordinator_pid: group_coordinator_pid
-     }}
+    {:ok, state, {:continue, :start_coordinator}}
   end
 
+  @impl GenServer
+  def handle_continue(:start_coordinator, state) do
+    Enum.each(state.topics, fn topic -> :brod.start_consumer(state.client, topic, []) end)
+
+    {:ok, group_coordinator_pid} =
+      :brod_group_coordinator.start_link(
+        state.client,
+        state.consumer_group,
+        state.topics,
+        state.config,
+        __MODULE__,
+        self()
+      )
+
+    {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
+  end
+
+  @impl GenServer
   def handle_cast({:assignments_received, generation_id, assignments}, state) do
     Enum.each(assignments, fn {:brod_received_assignment, topic, partition, offset} ->
       Elsa.Consumer.Worker.start_link(
