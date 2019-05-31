@@ -7,18 +7,16 @@ defmodule Elsa.Group.Supervisor do
 
   @impl Supervisor
   def init(init_arg) do
-    # how to handle the registry??
     children = [
-      {Registry, [keys: :unique]},
       {DynamicSupervisor, [strategy: :one_for_one]},
-      {Elsa.Group.Member, init_arg}
+      {Elsa.Group.Member, Keyword.put(init_arg, :supervisor_pid, self())}
     ]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :one_for_all)
   end
 
-  def registry(pid) do
-    find_child(pid, Registry)
+  def worker_supervisor(pid) do
+    find_child(pid, DynamicSupervisor)
   end
 
   def group_member(pid) do
