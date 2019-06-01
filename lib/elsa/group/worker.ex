@@ -9,7 +9,18 @@ defmodule Elsa.Group.Worker do
   defrecord :kafka_message, extract(:kafka_message, from_lib: "kafka_protocol/include/kpro_public.hrl")
 
   defmodule State do
-    defstruct [:name, :group, :topic, :partition, :offset, :generation_id, :subscriber_pid, :handler]
+    defstruct [
+      :name,
+      :group,
+      :topic,
+      :partition,
+      :offset,
+      :generation_id,
+      :subscriber_pid,
+      :handler,
+      :handler_init_args,
+      :handler_state
+    ]
   end
 
   def start_link(init_args) do
@@ -24,14 +35,15 @@ defmodule Elsa.Group.Worker do
       topic: Keyword.fetch!(init_args, :topic),
       partition: Keyword.fetch!(init_args, :partition),
       offset: Keyword.fetch!(init_args, :begin_offset),
-      handler: Keyword.fetch!(init_args, :handler)
+      handler: Keyword.fetch!(init_args, :handler),
+      handler_init_args: Keyword.fetch!(init_args, :handler_init_args)
     }
 
     Registry.register(registry(state.group), :"worker_#{state.topic}_#{state.partition}", nil)
 
-    state.handler.init(%{topic: state.topic, partition: state.partition})
+    {:ok, handler_state} = state.handler.init(state.handler_init_args)
 
-    {:ok, state, {:continue, :subscribe}}
+    {:ok, %{state | handler_state: handler_state}, {:continue, :subscribe}}
   end
 
   def handle_continue(:subscribe, state) do
@@ -42,14 +54,29 @@ defmodule Elsa.Group.Worker do
   def handle_info({_consumer_pid, kafka_message_set(topic: topic, partition: partition, messages: messages)}, state) do
     IO.inspect(messages, label: "worker messages")
 
-    messages
-    |> Enum.map(&transform_message(topic, partition, &1))
-    |> state.handler.handle_messages()
+    {:ack, new_handler_state} = send_messages_to_handler(topic, partition, messages, state)
+    offset = ack_messages(topic, partition, messages, state)
 
-    {:noreply, state}
+    {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
   end
 
-  defp transform_message(topic, partition, kafka_message(offset: offset, key: key, value: value))  do
+  defp send_messages_to_handler(topic, partition, messages, state) do
+    messages
+    |> Enum.map(&transform_message(topic, partition, &1))
+    |> state.handler.handle_messages(state.handler_state)
+  end
+
+  defp ack_messages(topic, partition, messages, state) do
+    offset = messages |> List.last() |> kafka_message(:offset)
+    {:ok, group_coordinator_pid} = Registry.meta(registry(state.group), :group_coordinator)
+
+    :ok = :brod_group_coordinator.ack(group_coordinator_pid, state.generation_id, topic, partition, offset)
+    :ok = :brod.consume_ack(state.name, topic, partition, offset)
+
+    offset
+  end
+
+  defp transform_message(topic, partition, kafka_message(offset: offset, key: key, value: value)) do
     %{
       topic: topic,
       partition: partition,
@@ -62,7 +89,7 @@ defmodule Elsa.Group.Worker do
   defp subscribe(state) do
     opts = [begin_offset: offset(state.offset)]
     {:ok, subscriber_pid} = :brod.subscribe(state.name, self(), state.topic, state.partition, opts)
-    Logger.info("Subscribing to topic #{state.topic} partition #{state.partition}")
+    Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
     subscriber_pid
   end
 

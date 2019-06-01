@@ -29,5 +29,4 @@ defmodule Elsa.Group.Supervisor do
     args
     |> Keyword.put(:supervisor_pid, self())
   end
-
 end

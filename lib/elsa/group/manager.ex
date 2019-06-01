@@ -9,7 +9,18 @@ defmodule Elsa.Group.Manager do
   defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
 
   defmodule State do
-    defstruct [:brokers, :name, :group, :topics, :config, :group_coordinator_pid, :supervisor_pid, :handler]
+    defstruct [
+      :brokers,
+      :name,
+      :group,
+      :topics,
+      :config,
+      :client_pid,
+      :group_coordinator_pid,
+      :supervisor_pid,
+      :handler,
+      :handler_init_args
+    ]
   end
 
   def get_committed_offsets(_pid, _topic) do
@@ -40,15 +51,16 @@ defmodule Elsa.Group.Manager do
       topics: Keyword.fetch!(opts, :topics),
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
       handler: Keyword.fetch!(opts, :handler),
+      handler_init_args: Keyword.get(opts, :handler_init_args, %{}),
       config: Keyword.get(opts, :config, [])
     }
 
-    :ok =
+    {:ok, client_pid} =
       state.brokers
       |> Elsa.Util.reformat_endpoints()
-      |> :brod.start_client(state.name)
+      |> :brod.start_link_client(state.name)
 
-    {:ok, state, {:continue, :start_coordinator}}
+    {:ok, %{state | client_pid: client_pid}, {:continue, :start_coordinator}}
   end
 
   def handle_continue(:start_coordinator, state) do
@@ -75,6 +87,7 @@ defmodule Elsa.Group.Manager do
         partition: assignment.partition,
         begin_offset: assignment.begin_offset,
         handler: state.handler,
+        handler_init_args: state.handler_init_args,
         name: state.name
       ]
 
