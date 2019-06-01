@@ -9,8 +9,8 @@ defmodule Elsa.Group.Supervisor do
 
   @impl Supervisor
   def init(init_arg) do
-    group = Keyword.fetch!(init_arg, :group)
-    registry_name = registry(group)
+    name = Keyword.fetch!(init_arg, :name)
+    registry_name = registry(name)
 
     children = [
       {Registry, [keys: :unique, name: registry_name]},
@@ -21,8 +21,8 @@ defmodule Elsa.Group.Supervisor do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  def registry(group) do
-    :"elsa_registry_#{group}"
+  def registry(name) do
+    :"elsa_registry_#{name}"
   end
 
   defp manager_args(args) do

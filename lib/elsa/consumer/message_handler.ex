@@ -12,8 +12,8 @@ defmodule Elsa.Consumer.MessageHandler do
       end
 
       def handle_messages(messages, state) do
-        handle_messages(messages)
-        {:ack, state}
+        result = handle_messages(messages)
+        {result, state}
       end
 
       def handle_messages(messages) do

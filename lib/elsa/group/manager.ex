@@ -37,17 +37,15 @@ defmodule Elsa.Group.Manager do
   end
 
   def start_link(opts) do
-    group = Keyword.fetch!(opts, :group)
-    GenServer.start_link(__MODULE__, opts, name: {:via, Registry, {registry(group), __MODULE__}})
+    name = Keyword.fetch!(opts, :name)
+    GenServer.start_link(__MODULE__, opts, name: {:via, Registry, {registry(name), __MODULE__}})
   end
 
   def init(opts) do
-    group = Keyword.fetch!(opts, :group)
-
     state = %State{
       brokers: Keyword.fetch!(opts, :brokers),
-      group: group,
-      name: :"elsa_client_#{group}",
+      group: Keyword.fetch!(opts, :group),
+      name: Keyword.fetch!(opts, :name),
       topics: Keyword.fetch!(opts, :topics),
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
       handler: Keyword.fetch!(opts, :handler),
@@ -71,7 +69,7 @@ defmodule Elsa.Group.Manager do
       :ok = :brod.start_consumer(state.name, topic, [])
     end)
 
-    Registry.put_meta(registry(state.group), :group_coordinator, group_coordinator_pid)
+    Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)
 
     {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
   end
@@ -91,7 +89,7 @@ defmodule Elsa.Group.Manager do
         name: state.name
       ]
 
-      supervisor = {:via, Registry, {registry(state.group), :worker_supervisor}}
+      supervisor = {:via, Registry, {registry(state.name), :worker_supervisor}}
       DynamicSupervisor.start_child(supervisor, {Elsa.Group.Worker, init_args})
     end)
 

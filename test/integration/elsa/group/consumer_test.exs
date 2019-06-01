@@ -8,6 +8,7 @@ defmodule Elsa.Group.ConsumerTest do
     brokers = [localhost: 9092]
 
     {:ok, pid} = Elsa.Group.Supervisor.start_link(
+      name: :name1,
       brokers: brokers,
       group: "group1",
       topics: ["elsa-topic"],
@@ -27,6 +28,7 @@ defmodule Elsa.Group.ConsumerTest do
     brokers = [localhost: 9092]
 
     {:ok, pid} = Elsa.Group.Supervisor.start_link(
+      name: :name1,
       brokers: brokers,
       topics: ["elsa-topic"],
       group: "group1",

@@ -39,7 +39,7 @@ defmodule Elsa.Group.Worker do
       handler_init_args: Keyword.fetch!(init_args, :handler_init_args)
     }
 
-    Registry.register(registry(state.group), :"worker_#{state.topic}_#{state.partition}", nil)
+    Registry.register(registry(state.name), :"worker_#{state.topic}_#{state.partition}", nil)
 
     {:ok, handler_state} = state.handler.init(state.handler_init_args)
 
@@ -68,7 +68,7 @@ defmodule Elsa.Group.Worker do
 
   defp ack_messages(topic, partition, messages, state) do
     offset = messages |> List.last() |> kafka_message(:offset)
-    {:ok, group_coordinator_pid} = Registry.meta(registry(state.group), :group_coordinator)
+    {:ok, group_coordinator_pid} = Registry.meta(registry(state.name), :group_coordinator)
 
     :ok = :brod_group_coordinator.ack(group_coordinator_pid, state.generation_id, topic, partition, offset)
     :ok = :brod.consume_ack(state.name, topic, partition, offset)
