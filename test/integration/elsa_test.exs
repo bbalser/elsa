@@ -4,7 +4,7 @@ defmodule ElsaTest do
   require Elsa
 
   @endpoints [localhost: 9092]
-
+ 
   describe "list_topics/1" do
     test "will return topics given a client identifier" do
       topics = Elsa.list_topics(@endpoints)

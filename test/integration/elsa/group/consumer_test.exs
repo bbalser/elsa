@@ -24,7 +24,7 @@ defmodule Elsa.Group.ConsumerTest do
   test "Elsa.Consumer will hand messages to the handler without state" do
     brokers = [localhost: 9092]
 
-    Elsa.Group.Supervisor.start_link(
+    {:ok, pid} = Elsa.Group.Supervisor.start_link(
       brokers: brokers,
       name: :group_consumer_1,
       topics: ["elsa-topic"],
@@ -39,19 +39,6 @@ defmodule Elsa.Group.ConsumerTest do
                Testing.ExampleMessageHandlerWithoutState.get_messages()
     end
 
-    # Patiently.wait_for!(
-    #   fn ->
-    #     messages = Testing.ExampleMessageHandlerWithoutState.get_messages()
-    #     Logger.info("Received messages: #{inspect(messages)}")
-
-    #     match?(
-    #       [%{topic: "elsa-topic", partition: 0, offset: _offset, key: "", value: "message2"}],
-    #       messages
-    #     )
-    #   end,
-    #   dwell: 500,
-    #   max_tries: 20
-    # )
   end
 
   defp send_messages(messages) do
@@ -92,11 +79,15 @@ defmodule Testing.ExampleMessageHandlerWithoutState do
   end
 
   def get_messages() do
-    # Agent.get(__MODULE__, fn s -> s end)
+    case Process.whereis(__MODULE__) do
+      nil -> []
+      _pid -> Agent.get(__MODULE__, fn s -> s end)
+    end
   end
 
   def handle_messages(messages) do
-    Agent.update(__MODULE__, fn s -> s ++ messages end)
+    msgs = Enum.map(messages, &Map.delete(&1, :offset))
+    Agent.update(__MODULE__, fn s -> s ++ msgs end)
     :ack
   end
 end
