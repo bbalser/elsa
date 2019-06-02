@@ -1,5 +1,5 @@
 defmodule Elsa.Group.Worker do
-  use GenServer
+  use GenServer, restart: :temporary
   require Logger
 
   import Elsa.Group.Supervisor, only: [registry: 1]
@@ -7,6 +7,9 @@ defmodule Elsa.Group.Worker do
 
   defrecord :kafka_message_set, extract(:kafka_message_set, from_lib: "brod/include/brod.hrl")
   defrecord :kafka_message, extract(:kafka_message, from_lib: "kafka_protocol/include/kpro_public.hrl")
+
+  @subscribe_delay 200
+  @subscribe_retries 20
 
   defmodule State do
     defstruct [
@@ -47,8 +50,13 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_continue(:subscribe, state) do
-    pid = subscribe(state)
-    {:noreply, %{state | subscriber_pid: pid}}
+    case subscribe(state) do
+      {:ok, pid} ->
+        Process.link(pid)
+        {:noreply, %{state | subscriber_pid: pid}}
+      {:error, reason} ->
+        {:stop, reason, state}
+    end
   end
 
   def handle_info({_consumer_pid, kafka_message_set(topic: topic, partition: partition, messages: messages)}, state) do
@@ -68,9 +76,8 @@ defmodule Elsa.Group.Worker do
 
   defp ack_messages(topic, partition, messages, state) do
     offset = messages |> List.last() |> kafka_message(:offset)
-    {:ok, group_coordinator_pid} = Registry.meta(registry(state.name), :group_coordinator)
 
-    :ok = :brod_group_coordinator.ack(group_coordinator_pid, state.generation_id, topic, partition, offset)
+    Elsa.Group.Manager.ack(state.name, topic, partition, state.generation_id, offset)
     :ok = :brod.consume_ack(state.name, topic, partition, offset)
 
     offset
@@ -86,11 +93,23 @@ defmodule Elsa.Group.Worker do
     }
   end
 
-  defp subscribe(state) do
+  defp subscribe(state, retries \\ @subscribe_retries)
+  defp subscribe(state, 0) do
+    Logger.error("Unable to subscribe to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
+    {:error, :failed_subscription}
+  end
+
+  defp subscribe(state, retries) do
     opts = [begin_offset: offset(state.offset)]
-    {:ok, subscriber_pid} = :brod.subscribe(state.name, self(), state.topic, state.partition, opts)
-    Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
-    subscriber_pid
+    case :brod.subscribe(state.name, self(), state.topic, state.partition, opts) do
+      {:error, reason} ->
+        Logger.warn("Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{inspect(reason)}")
+        Process.sleep(@subscribe_delay)
+        subscribe(state, retries - 1)
+      {:ok, subscriber_pid} ->
+        Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
+        {:ok, subscriber_pid}
+    end
   end
 
   defp offset(:undefined), do: :earliest
