@@ -35,9 +35,9 @@ defmodule Elsa.Group.Manager do
     GenServer.cast(pid, :revoke_assignments)
   end
 
-  def ack(name, topic, partition, generation_id, offset) do
+  def ack(name, topic, partition, offset) do
     group_manager = {:via, Registry, {registry(name), __MODULE__}}
-    GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
+    GenServer.cast(group_manager, {:ack, topic, partition, offset})
   end
 
   def start_link(opts) do
@@ -92,7 +92,8 @@ defmodule Elsa.Group.Manager do
     {:noreply, state}
   end
 
-  def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
+  def handle_cast({:ack, topic, partition, offset}, state) do
+    generation_id = WorkerManager.get_generation_id(state.workers, topic, partition)
     :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
     new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
     {:noreply, %{state | workers: new_workers}}

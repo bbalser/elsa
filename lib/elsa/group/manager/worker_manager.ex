@@ -8,6 +8,11 @@ defmodule Elsa.Group.Manager.WorkerManager do
     defstruct [:pid, :ref, :generation_id, :topic, :partition, :latest_offset]
   end
 
+  def get_generation_id(workers, topic, partition) do
+    Map.get(workers, {topic, partition})
+    |> Map.get(:generation_id)
+  end
+
   def update_offset(workers, topic, partition, offset) do
     Map.update!(workers, {topic, partition}, fn worker -> %{worker | latest_offset: offset} end)
   end
@@ -23,7 +28,6 @@ defmodule Elsa.Group.Manager.WorkerManager do
 
     init_args = [
       group: state.group,
-      generation_id: generation_id,
       topic: assignment.topic,
       partition: assignment.partition,
       begin_offset: assignment.begin_offset,
