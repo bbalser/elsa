@@ -14,7 +14,6 @@ defmodule Elsa.Group.Worker do
   defmodule State do
     defstruct [
       :name,
-      :group,
       :topic,
       :partition,
       :offset,
@@ -32,7 +31,6 @@ defmodule Elsa.Group.Worker do
   def init(init_args) do
     state = %State{
       name: Keyword.fetch!(init_args, :name),
-      group: Keyword.fetch!(init_args, :group),
       topic: Keyword.fetch!(init_args, :topic),
       partition: Keyword.fetch!(init_args, :partition),
       offset: Keyword.fetch!(init_args, :begin_offset),

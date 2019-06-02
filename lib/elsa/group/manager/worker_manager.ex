@@ -27,7 +27,6 @@ defmodule Elsa.Group.Manager.WorkerManager do
     assignment = Enum.into(brod_received_assignment(assignment), %{})
 
     init_args = [
-      group: state.group,
       topic: assignment.topic,
       partition: assignment.partition,
       begin_offset: assignment.begin_offset,
