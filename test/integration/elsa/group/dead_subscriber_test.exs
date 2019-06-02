@@ -1,7 +1,6 @@
 defmodule Elsa.Group.SubscriberDeadTest do
   use ExUnit.Case
   use Divo
-  import AsyncAssertion
 
   @brokers Application.get_env(:elsa, :brokers)
 

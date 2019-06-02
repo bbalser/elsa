@@ -1,12 +1,10 @@
 defmodule Elsa.Group.Manager do
   use GenServer
   require Logger
-  import Record, only: [defrecord: 2, extract: 2]
   import Elsa.Group.Supervisor, only: [registry: 1]
+  alias Elsa.Group.Manager.WorkerManager
 
   @behaviour :brod_group_member
-
-  defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
 
   defmodule State do
     defstruct [
@@ -20,8 +18,7 @@ defmodule Elsa.Group.Manager do
       :supervisor_pid,
       :handler,
       :handler_init_args,
-      :workers,
-      :offsets
+      :workers
     ]
   end
 
@@ -57,7 +54,8 @@ defmodule Elsa.Group.Manager do
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
       handler: Keyword.fetch!(opts, :handler),
       handler_init_args: Keyword.get(opts, :handler_init_args, %{}),
-      config: Keyword.get(opts, :config, [])
+      config: Keyword.get(opts, :config, []),
+      workers: %{}
     }
 
     {:ok, client_pid} =
@@ -82,20 +80,12 @@ defmodule Elsa.Group.Manager do
   end
 
   def handle_cast({:process_assignments, generation_id, assignments}, state) do
-    workers =
-      assignments
-      |> Enum.map(&Enum.into(brod_received_assignment(&1), %{}))
-      |> Enum.map(&start_worker(generation_id, &1, state))
-      |> Enum.reduce(%{}, fn %{ref: ref} = worker, acc -> Map.put(acc, ref, worker) end)
-
-    offsets =
-      assignments
-      |> Enum.map(&Enum.into(brod_received_assignment(&1), %{}))
-      |> Enum.reduce(%{}, fn assignment, acc ->
-        Map.put(acc, {assignment.topic, assignment.partition}, assignment.begin_offset)
+    new_workers =
+      Enum.reduce(assignments, state.workers, fn assignment, workers ->
+        WorkerManager.start_worker(workers, generation_id, assignment, state)
       end)
 
-    {:noreply, %{state | workers: workers, offsets: offsets}}
+    {:noreply, %{state | workers: new_workers}}
   end
 
   def handle_cast(:revoke_assignments, state) do
@@ -104,40 +94,13 @@ defmodule Elsa.Group.Manager do
 
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
     :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-    offsets = Map.put(state.offsets, {topic, partition}, offset)
-    {:noreply, %{state | offsets: offsets}}
-  end
-
-  def handle_info({:DOWN, ref, :process, object, reason}, state) do
-    worker = Map.get(state.workers, ref)
-    latest_offset = Map.get(state.offsets, {worker.topic, worker.partition})
-    assignment = %{topic: worker.topic, partition: worker.partition, begin_offset: latest_offset + 1}
-    new_worker = start_worker(worker.generation_id, assignment, state)
-
-    new_workers =
-      state.workers
-      |> Map.delete(ref)
-      |> Map.put(new_worker.ref, new_worker)
-
+    new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
     {:noreply, %{state | workers: new_workers}}
   end
 
-  defp start_worker(generation_id, assignment, state) do
-    init_args = [
-      group: state.group,
-      generation_id: generation_id,
-      topic: assignment.topic,
-      partition: assignment.partition,
-      begin_offset: assignment.begin_offset,
-      handler: state.handler,
-      handler_init_args: state.handler_init_args,
-      name: state.name
-    ]
+  def handle_info({:DOWN, ref, :process, _object, _reason}, state) do
+    new_workers = WorkerManager.restart_worker(state.workers, ref, state)
 
-    supervisor = {:via, Registry, {registry(state.name), :worker_supervisor}}
-    {:ok, worker_pid} = DynamicSupervisor.start_child(supervisor, {Elsa.Group.Worker, init_args})
-    ref = Process.monitor(worker_pid)
-
-    %{pid: worker_pid, ref: ref, generation_id: generation_id, topic: assignment.topic, partition: assignment.partition}
+    {:noreply, %{state | workers: new_workers}}
   end
 end

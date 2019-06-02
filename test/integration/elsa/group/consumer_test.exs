@@ -4,13 +4,13 @@ defmodule Elsa.Group.ConsumerTest do
   import AsyncAssertion
   require Logger
 
-  test "Elsa.Consumer will hand messages to the handler with state" do
-    brokers = [localhost: 9092]
+  @brokers Application.get_env(:elsa, :brokers)
 
+  test "Elsa.Consumer will hand messages to the handler with state" do
     {:ok, pid} =
       Elsa.Group.Supervisor.start_link(
         name: :name1,
-        brokers: brokers,
+        brokers: @brokers,
         group: "group1",
         topics: ["elsa-topic"],
         handler: Testing.ExampleMessageHandlerWithState,
@@ -26,12 +26,11 @@ defmodule Elsa.Group.ConsumerTest do
 
   test "Elsa.Consumer will hand messages to the handler without state" do
     Agent.start_link(fn -> [] end, name: :test_message_store)
-    brokers = [localhost: 9092]
 
     {:ok, pid} =
       Elsa.Group.Supervisor.start_link(
         name: :name1,
-        brokers: brokers,
+        brokers: @brokers,
         topics: ["elsa-topic"],
         group: "group1",
         handler: Testing.ExampleMessageHandlerWithoutState

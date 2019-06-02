@@ -54,6 +54,7 @@ defmodule Elsa.Group.Worker do
       {:ok, pid} ->
         Process.link(pid)
         {:noreply, %{state | subscriber_pid: pid}}
+
       {:error, reason} ->
         {:stop, reason, state}
     end
@@ -94,6 +95,7 @@ defmodule Elsa.Group.Worker do
   end
 
   defp subscribe(state, retries \\ @subscribe_retries)
+
   defp subscribe(state, 0) do
     Logger.error("Unable to subscribe to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
     {:error, :failed_subscription}
@@ -101,11 +103,18 @@ defmodule Elsa.Group.Worker do
 
   defp subscribe(state, retries) do
     opts = [begin_offset: offset(state.offset)]
+
     case :brod.subscribe(state.name, self(), state.topic, state.partition, opts) do
       {:error, reason} ->
-        Logger.warn("Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{inspect(reason)}")
+        Logger.warn(
+          "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
+            inspect(reason)
+          }"
+        )
+
         Process.sleep(@subscribe_delay)
         subscribe(state, retries - 1)
+
       {:ok, subscriber_pid} ->
         Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
         {:ok, subscriber_pid}
