@@ -36,7 +36,6 @@ defmodule Elsa.Group.Manager do
   def assignments_revoked(pid) do
     Logger.error("Assignments revoked : #{inspect(pid)}")
     GenServer.cast(pid, :revoke_assignments)
-    :ok
   end
 
   def ack(name, topic, partition, generation_id, offset) do
