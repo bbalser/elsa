@@ -12,7 +12,8 @@ defmodule Elsa.Group.SubscriberDeadTest do
         group: "group1",
         topics: ["elsa-topic"],
         handler: Test.BasicHandler,
-        handler_init_args: %{pid: self()}
+        handler_init_args: %{pid: self()},
+        config: [begin_offset: :earliest]
       )
 
     send_messages(0, ["message1"])

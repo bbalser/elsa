@@ -14,7 +14,8 @@ defmodule Elsa.Group.ConsumerTest do
         group: "group1",
         topics: ["elsa-topic"],
         handler: Testing.ExampleMessageHandlerWithState,
-        handler_init_args: %{pid: self()}
+        handler_init_args: %{pid: self()},
+        config: [begin_offset: :earliest]
       )
 
     send_messages(["message1", "message2"])
@@ -33,7 +34,8 @@ defmodule Elsa.Group.ConsumerTest do
         brokers: @brokers,
         topics: ["elsa-topic"],
         group: "group1",
-        handler: Testing.ExampleMessageHandlerWithoutState
+        handler: Testing.ExampleMessageHandlerWithoutState,
+        config: [begin_offset: :earliest]
       )
 
     send_messages(["message2"])

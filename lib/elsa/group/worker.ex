@@ -20,7 +20,8 @@ defmodule Elsa.Group.Worker do
       :subscriber_pid,
       :handler,
       :handler_init_args,
-      :handler_state
+      :handler_state,
+      :config
     ]
   end
 
@@ -35,7 +36,8 @@ defmodule Elsa.Group.Worker do
       partition: Keyword.fetch!(init_args, :partition),
       offset: Keyword.fetch!(init_args, :begin_offset),
       handler: Keyword.fetch!(init_args, :handler),
-      handler_init_args: Keyword.fetch!(init_args, :handler_init_args)
+      handler_init_args: Keyword.fetch!(init_args, :handler_init_args),
+      config: Keyword.fetch!(init_args, :config)
     }
 
     Registry.register(registry(state.name), :"worker_#{state.topic}_#{state.partition}", nil)
@@ -57,8 +59,6 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_info({_consumer_pid, kafka_message_set(topic: topic, partition: partition, messages: messages)}, state) do
-    IO.inspect(messages, label: "worker messages")
-
     {:ack, new_handler_state} = send_messages_to_handler(topic, partition, messages, state)
     offset = ack_messages(topic, partition, messages, state)
 
@@ -98,7 +98,7 @@ defmodule Elsa.Group.Worker do
   end
 
   defp subscribe(state, retries) do
-    opts = [begin_offset: offset(state.offset)]
+    opts = determine_subscriber_opts(state)
 
     case :brod.subscribe(state.name, self(), state.topic, state.partition, opts) do
       {:error, reason} ->
@@ -117,6 +117,14 @@ defmodule Elsa.Group.Worker do
     end
   end
 
-  defp offset(:undefined), do: :earliest
-  defp offset(offset), do: offset
+  defp determine_subscriber_opts(state) do
+    begin_offset =
+      case state.offset do
+        :undefined ->
+          Keyword.get(state.config, :begin_offset, :latest)
+        offset -> offset
+      end
+
+    Keyword.put(state.config, :begin_offset, begin_offset)
+  end
 end

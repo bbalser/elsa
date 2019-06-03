@@ -71,7 +71,7 @@ defmodule Elsa.Group.Manager do
       :brod_group_coordinator.start_link(state.name, state.group, state.topics, state.config, __MODULE__, self())
 
     Enum.each(state.topics, fn topic ->
-      :ok = :brod.start_consumer(state.name, topic, [])
+      :ok = :brod.start_consumer(state.name, topic, state.config)
     end)
 
     Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)

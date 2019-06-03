@@ -19,7 +19,8 @@ defmodule Elsa.Group.Manager.WorkerManager do
 
   def restart_worker(workers, ref, %Elsa.Group.Manager.State{} = state) do
     worker = get_by_ref(workers, ref)
-    assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: worker.latest_offset + 1)
+    new_offset = if worker.latest_offset == :undefined, do: :undefined, else: worker.latest_offset + 1
+    assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: new_offset)
     start_worker(workers, worker.generation_id, assignment, state)
   end
 
@@ -32,7 +33,8 @@ defmodule Elsa.Group.Manager.WorkerManager do
       begin_offset: assignment.begin_offset,
       handler: state.handler,
       handler_init_args: state.handler_init_args,
-      name: state.name
+      name: state.name,
+      config: state.config
     ]
 
     supervisor = {:via, Registry, {registry(state.name), :worker_supervisor}}
