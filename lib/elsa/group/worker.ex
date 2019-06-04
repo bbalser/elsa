@@ -16,6 +16,7 @@ defmodule Elsa.Group.Worker do
       :name,
       :topic,
       :partition,
+      :generation_id,
       :offset,
       :subscriber_pid,
       :handler,
@@ -38,6 +39,7 @@ defmodule Elsa.Group.Worker do
       name: Keyword.fetch!(init_args, :name),
       topic: Keyword.fetch!(init_args, :topic),
       partition: Keyword.fetch!(init_args, :partition),
+      generation_id: Keyword.fetch!(init_args, :generation_id),
       offset: Keyword.fetch!(init_args, :begin_offset),
       handler: Keyword.fetch!(init_args, :handler),
       handler_init_args: Keyword.fetch!(init_args, :handler_init_args),
@@ -84,7 +86,7 @@ defmodule Elsa.Group.Worker do
   defp ack_messages(topic, partition, messages, state) do
     offset = messages |> List.last() |> kafka_message(:offset)
 
-    Elsa.Group.Manager.ack(state.name, topic, partition, offset)
+    Elsa.Group.Manager.ack(state.name, topic, partition, state.generation_id, offset)
     :ok = :brod.consume_ack(state.name, topic, partition, offset)
 
     offset

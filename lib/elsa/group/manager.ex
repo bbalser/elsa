@@ -35,9 +35,9 @@ defmodule Elsa.Group.Manager do
     GenServer.cast(pid, :revoke_assignments)
   end
 
-  def ack(name, topic, partition, offset) do
+  def ack(name, topic, partition, generation_id, offset) do
     group_manager = {:via, Registry, {registry(name), __MODULE__}}
-    GenServer.cast(group_manager, {:ack, topic, partition, offset})
+    GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
   end
 
   def start_link(opts) do
@@ -93,11 +93,17 @@ defmodule Elsa.Group.Manager do
     {:noreply, %{state | workers: new_workers}}
   end
 
-  def handle_cast({:ack, topic, partition, offset}, state) do
-    generation_id = WorkerManager.get_generation_id(state.workers, topic, partition)
-    :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-    new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
-    {:noreply, %{state | workers: new_workers}}
+  def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
+    assignment_generation_id = WorkerManager.get_generation_id(state.workers, topic, partition)
+    case assignment_generation_id == generation_id do
+      true ->
+        :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
+        new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
+        {:noreply, %{state | workers: new_workers}}
+      false ->
+        Logger.warn("Invalid generation_id, ignoring ack - topic #{topic} parition #{partition} offset #{offset}")
+        {:noreply, state}
+    end
   end
 
   def handle_info({:DOWN, ref, :process, _object, _reason}, state) do

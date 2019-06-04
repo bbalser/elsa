@@ -42,6 +42,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
     init_args = [
       topic: assignment.topic,
       partition: assignment.partition,
+      generation_id: generation_id,
       begin_offset: assignment.begin_offset,
       handler: state.handler,
       handler_init_args: state.handler_init_args,
