@@ -11,10 +11,9 @@ defmodule Elsa do
 
   defdelegate create_topic(endpoints, topic, opts \\ []), to: Elsa.Topic, as: :create
 
-  defdelegate produce_sync(endpoints, topic, partition, key, value), to: Elsa.Producer
+  defdelegate delete_topic(endpoints, topic), to: Elsa.Topic, as: :delete
 
-  def delete_topic() do
-  end
+  defdelegate produce_sync(endpoints, topic, partition, key, value), to: Elsa.Producer
 
   def fetch() do
   end

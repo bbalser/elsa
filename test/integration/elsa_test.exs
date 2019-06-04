@@ -13,7 +13,7 @@ defmodule ElsaTest do
     end
   end
 
-  describe "create_topic/1" do
+  describe "create_topic/3" do
     test "will create a topic with 1 partition" do
       assert :ok == Elsa.create_topic(@endpoints, "new-topic")
 
@@ -26,6 +26,28 @@ defmodule ElsaTest do
 
       topics = Elsa.list_topics(@endpoints)
       assert Enum.any?(topics, fn entry -> match?({"new-topic-2", 2}, entry) end)
+    end
+  end
+
+  describe "delete_topic/2" do
+    setup do
+      Elsa.create_topic(@endpoints, "delete-topic1")
+      Elsa.create_topic(@endpoints, "delete-topic2", partitions: 2)
+      :ok
+    end
+
+    test "will delete a specified topic" do
+      assert :ok == Elsa.delete_topic(@endpoints, "delete-topic1")
+
+      topics = Elsa.list_topics(@endpoints)
+      refute Enum.member?(topics, {"delete-topic1", 1})
+    end
+
+    test "will delete a topic with multiple partitions" do
+      assert :ok == Elsa.delete_topic(@endpoints, "delete-topic2")
+
+      topics = Elsa.list_topics(@endpoints)
+      refute Enum.member?(topics, {"delete-topic2", 2})
     end
   end
 
