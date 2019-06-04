@@ -25,6 +25,10 @@ defmodule Elsa.Group.Worker do
     ]
   end
 
+  def unsubscribe(pid) do
+    GenServer.call(pid, :unsubscribe)
+  end
+
   def start_link(init_args) do
     GenServer.start_link(__MODULE__, init_args)
   end
@@ -63,6 +67,12 @@ defmodule Elsa.Group.Worker do
     offset = ack_messages(topic, partition, messages, state)
 
     {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
+  end
+
+  def handle_call(:unsubscribe, _from, state) do
+    Process.unlink(state.subscriber_pid)
+    result = :brod.unsubscribe(state.name, state.topic, state.partition)
+    {:stop, :normal, result, state}
   end
 
   defp send_messages_to_handler(topic, partition, messages, state) do
@@ -122,7 +132,9 @@ defmodule Elsa.Group.Worker do
       case state.offset do
         :undefined ->
           Keyword.get(state.config, :begin_offset, :latest)
-        offset -> offset
+
+        offset ->
+          offset
       end
 
     Keyword.put(state.config, :begin_offset, begin_offset)

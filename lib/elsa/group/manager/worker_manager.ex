@@ -14,13 +14,25 @@ defmodule Elsa.Group.Manager.WorkerManager do
   end
 
   def update_offset(workers, topic, partition, offset) do
-    Map.update!(workers, {topic, partition}, fn worker -> %{worker | latest_offset: offset} end)
+    Map.update!(workers, {topic, partition}, fn worker -> %{worker | latest_offset: offset + 1} end)
+  end
+
+  def stop_all_workers(workers) do
+    workers
+    |> Map.values()
+    |> Enum.each(fn worker ->
+      Process.demonitor(worker.ref)
+      GenServer.call(worker.pid, :unsubscribe)
+    end)
+
+    %{}
   end
 
   def restart_worker(workers, ref, %Elsa.Group.Manager.State{} = state) do
     worker = get_by_ref(workers, ref)
-    new_offset = if worker.latest_offset == :undefined, do: :undefined, else: worker.latest_offset + 1
+    new_offset = if worker.latest_offset == :undefined, do: :undefined, else: worker.latest_offset
     assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: new_offset)
+
     start_worker(workers, worker.generation_id, assignment, state)
   end
 

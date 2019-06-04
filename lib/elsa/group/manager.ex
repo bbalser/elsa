@@ -89,7 +89,8 @@ defmodule Elsa.Group.Manager do
   end
 
   def handle_cast(:revoke_assignments, state) do
-    {:noreply, state}
+    new_workers = WorkerManager.stop_all_workers(state.workers)
+    {:noreply, %{state | workers: new_workers}}
   end
 
   def handle_cast({:ack, topic, partition, offset}, state) do

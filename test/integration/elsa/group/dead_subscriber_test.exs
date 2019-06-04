@@ -21,16 +21,25 @@ defmodule Elsa.Group.SubscriberDeadTest do
 
     assert_receive {:message, %{value: "message1"}}, 5_000
     assert_receive {:message, %{value: "message2"}}, 5_000
+    refute_receive {:message, _message}, 5_000
 
-    [{worker_pid, _value}] = Registry.lookup(:elsa_registry_name1, :"worker_elsa-topic_0")
-    Process.exit(worker_pid, :kill)
-    assert false == Process.alive?(worker_pid)
+    kill_worker(0)
 
     send_messages(0, ["message3"])
     send_messages(1, ["message4"])
 
-    assert_receive {:message, %{value: "message4"}}, 5_000
     assert_receive {:message, %{value: "message3"}}, 5_000
+    assert_receive {:message, %{value: "message4"}}, 5_000
+    refute_receive {:message, _message}, 5_000
+
+    kill_worker(1)
+
+    send_messages(0, ["message5"])
+    send_messages(1, ["message6"])
+
+    assert_receive {:message, %{value: "message5"}}, 5_000
+    assert_receive {:message, %{value: "message6"}}, 5_000
+    refute_receive {:message, _message}, 5_000
 
     Supervisor.stop(pid)
   end
@@ -43,6 +52,12 @@ defmodule Elsa.Group.SubscriberDeadTest do
     |> Enum.each(fn msg ->
       :brod.produce_sync(:test_client, "elsa-topic", partition, "", msg)
     end)
+  end
+
+  defp kill_worker(partition) do
+    [{worker_pid, _value}] = Registry.lookup(:elsa_registry_name1, :"worker_elsa-topic_#{partition}")
+    Process.exit(worker_pid, :kill)
+    assert false == Process.alive?(worker_pid)
   end
 end
 
