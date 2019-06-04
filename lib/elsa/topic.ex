@@ -30,6 +30,15 @@ defmodule Elsa.Topic do
     end)
   end
 
+  def delete(endpoints, topic) do
+    with_connection(endpoints, fn connection ->
+      version = Elsa.Util.get_api_version(connection, :delete_topics)
+      topic_request = :kpro_req_lib.delete_topics(version, [topic], %{timeout: 5_000})
+
+      send_request(connection, topic_request, 5_000)
+    end)
+  end
+
   defp send_request(connection, request, timeout) do
     case :kpro.request_sync(connection, request, timeout) do
       {:ok, response} -> check_response(response)
@@ -40,9 +49,15 @@ defmodule Elsa.Topic do
   defp check_response(response) do
     message = kpro_rsp(response, :msg)
 
-    case Enum.find(message.topic_errors, fn error -> error.error_code != :no_error end) do
+    error_key =
+      case Map.has_key?(message, :topic_errors) do
+        true -> :topic_errors
+        false -> :topic_error_codes
+      end
+
+    case Enum.find(message[error_key], fn error -> error.error_code != :no_error end) do
       nil -> :ok
-      error -> {:error, error.error_message}
+      error -> {:error, {error.error_code, error[:error_message]}}
     end
   end
 end

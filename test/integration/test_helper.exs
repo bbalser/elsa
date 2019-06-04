@@ -21,7 +21,7 @@ defmodule AsyncAssertion do
     end
   rescue
     e in ExUnit.AssertionError ->
-      # Logger.warn("Retries Remaining #{retries}\n" <> ExUnit.AssertionError.message(e))
+      Logger.warn("Retries Remaining #{retries}\n" <> ExUnit.AssertionError.message(e))
       Process.sleep(delay)
       assert_async(retries - 1, delay, fun)
   end

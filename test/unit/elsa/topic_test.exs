@@ -43,7 +43,34 @@ defmodule Elsa.TopicTest do
 
       internal_result = function.(:connection)
 
-      assert {:error, "Topic 'elsa-topic' already exists."} == internal_result
+      assert {:error, {:topic_already_exists, "Topic 'elsa-topic' already exists."}} == internal_result
+    end
+  end
+
+  describe "delete_topic/2" do
+    test "return error tuple when topic response contains an error" do
+      allow Elsa.Util.with_connection(any(), any()), return: :not_sure_yet
+      allow Elsa.Util.get_api_version(any(), :delete_topics), return: :version
+      allow :kpro_req_lib.delete_topics(any(), any(), any()), return: :topic_request
+
+      message = %{
+        topic_error_codes: [
+          %{
+            error_code: :topic_doesnt_exist,
+            topic: "elsa-topic"
+          }
+        ]
+      }
+
+      kpro_rsp = Elsa.Topic.kpro_rsp(api: :delete_topics, vsn: 2, msg: message)
+      allow :kpro.request_sync(:connection, any(), any()), return: {:ok, kpro_rsp}
+
+      Elsa.delete_topic(:endpoints, "elsa-topic")
+      function = capture(Elsa.Util.with_connection(:endpoints, any()), 2)
+
+      internal_result = function.(:connection)
+
+      assert {:error, {:topic_doesnt_exist, nil}} == internal_result
     end
   end
 end

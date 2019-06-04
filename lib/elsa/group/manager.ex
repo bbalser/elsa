@@ -95,11 +95,13 @@ defmodule Elsa.Group.Manager do
 
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
     assignment_generation_id = WorkerManager.get_generation_id(state.workers, topic, partition)
+
     case assignment_generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
         new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
         {:noreply, %{state | workers: new_workers}}
+
       false ->
         Logger.warn("Invalid generation_id, ignoring ack - topic #{topic} parition #{partition} offset #{offset}")
         {:noreply, state}
