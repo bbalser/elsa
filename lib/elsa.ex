@@ -15,6 +15,8 @@ defmodule Elsa do
 
   defdelegate produce_sync(endpoints, topic, partition, key, value), to: Elsa.Producer
 
+  defdelegate produce_sync(pid, key, value), to: Elsa.Producer
+
   def fetch() do
   end
 
