@@ -2,12 +2,10 @@ defmodule Elsa.Producer do
   use GenServer
 
   def produce_sync(endpoints, topic, partition, key, value) do
-    endpoints
-    |> Elsa.Util.reformat_endpoints()
-    |> :brod.start_client(Elsa.default_client())
+    client = Elsa.default_client()
 
-    :brod.start_producer(Elsa.default_client(), topic, [])
-    :brod.produce_sync(Elsa.default_client(), topic, partition, key, value)
+    start_producer(client, endpoints, topic)
+    :brod.produce_sync(client, topic, partition, key, value)
   end
 
   def produce_sync(name, key, value) do
@@ -25,24 +23,23 @@ defmodule Elsa.Producer do
     partition = Keyword.get(args, :partition)
     client = Elsa.default_client()
 
-    brokers
-    |> Elsa.Util.reformat_endpoints()
-    |> :brod.start_client(client)
+    start_producer(client, brokers, topic)
 
-    :brod.start_producer(client, topic, [])
-
-    {:ok, {client, topic, partition}, {:continue, :get_producer}}
-  end
-
-  def handle_continue(:get_producer, {client, topic, partition}) do
-    {:ok, pid} = :brod.get_producer(client, topic, partition)
-    {:noreply, pid}
+    {:ok, _pid} = :brod.get_producer(client, topic, partition)
   end
 
   def handle_call({:produce_sync, key, value}, _from, pid) do
     pid
     |> :brod.produce_sync(key, value)
     |> reply(pid)
+  end
+
+  defp start_producer(client, brokers, topic) do
+    brokers
+    |> Elsa.Util.reformat_endpoints()
+    |> :brod.start_client(client)
+
+    :brod.start_producer(client, topic, [])
   end
 
   defp reply(:ok, pid), do: {:reply, :ok, pid}
