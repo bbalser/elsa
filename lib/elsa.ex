@@ -13,16 +13,12 @@ defmodule Elsa do
 
   defdelegate delete_topic(endpoints, topic), to: Elsa.Topic, as: :delete
 
-  defdelegate produce_sync(endpoints, topic, partition, key, value), to: Elsa.Producer
-
-  defdelegate produce_sync(pid, key, value), to: Elsa.Producer
+  defdelegate produce_sync(endpoints, topic, partition, key, value), to: Elsa.Producer, as: :produce_sync_simple
 
   def fetch() do
   end
 
-  def default_client() do
-    :elsa_default_client
-  end
+  def default_client(), do: :elsa_default_client
 
   defmodule ConnectError do
     defexception [:message]

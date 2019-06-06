@@ -42,7 +42,7 @@ defmodule Elsa.MixProject do
 
   defp package do
     [
-      maintainers: ["Brian Balser", "Jeff Grunewald"],
+      maintainers: ["Brian Balser", "Jeff Grunewald", "Johnson Denen"],
       licenses: ["Apache 2.0"],
       links: %{"GitHub" => "https://github.com/bbalser/elsa"}
     ]
