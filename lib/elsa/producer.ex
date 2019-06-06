@@ -18,6 +18,8 @@ defmodule Elsa.Producer do
     :brod.start_producer(name, topic, config)
   end
 
+  def stop_producer(client, topic), do: :brod_client.stop_producer(client, topic)
+
   def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key, value) do
     :brod.produce_sync(client, topic, partition, key, value)
   end
