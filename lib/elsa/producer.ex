@@ -13,7 +13,7 @@ defmodule Elsa.Producer do
 
   def stop_producer(client, topic), do: :brod_client.stop_producer(client, topic)
 
-  def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key, value)
+  def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key \\ "ignored", value)
 
   def produce_sync(endpoints, topic, partition, key, value) when is_list(endpoints) do
     client = Elsa.default_client()

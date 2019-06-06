@@ -12,7 +12,8 @@ defmodule Elsa.ProducerTest do
 
       {:ok, partitions} = :brod.get_partitions_count(:elsa_client1, "elsa-topic")
 
-      producer_pids = Enum.map(0..partitions - 1, fn part -> :brod.get_producer(:elsa_client1, "elsa-topic", part) end)
+      producer_pids =
+        Enum.map(0..(partitions - 1), fn part -> :brod.get_producer(:elsa_client1, "elsa-topic", part) end)
 
       all_alive = Enum.map(producer_pids, fn {_, pid} -> Process.alive?(pid) end)
       assert Enum.all?(all_alive, fn alive -> alive == true end)
@@ -29,7 +30,7 @@ defmodule Elsa.ProducerTest do
       Elsa.create_topic(@brokers, "producer-topic1")
       Elsa.Producer.start_producer(@brokers, "producer-topic1")
 
-      Producer.produce_sync("producer-topic1", "ignored", [{"key1", "value1"}, {"key2", "value2"}])
+      Producer.produce_sync("producer-topic1", [{"key1", "value1"}, {"key2", "value2"}])
 
       parsed_messages = retrieve_results(@brokers, "producer-topic1", 0, 0)
 
