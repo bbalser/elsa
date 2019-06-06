@@ -4,13 +4,6 @@ defmodule Elsa.Producer do
   as well as send messages to topics.
   """
 
-  def produce_sync_simple(endpoints, topic, partition, key, value) do
-    client = Elsa.default_client()
-
-    start_producer(endpoints, topic, name: client)
-    produce_sync(client, topic, partition, key, value)
-  end
-
   def start_producer(endpoints, topic, config \\ []) do
     name = Keyword.get(config, :name, Elsa.default_client())
 
@@ -20,7 +13,16 @@ defmodule Elsa.Producer do
 
   def stop_producer(client, topic), do: :brod_client.stop_producer(client, topic)
 
-  def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key, value) do
+  def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key, value)
+
+  def produce_sync(endpoints, topic, partition, key, value) when is_list(endpoints) do
+    client = Elsa.default_client()
+
+    start_producer(endpoints, topic, name: client)
+    produce_sync(client, topic, partition, key, value)
+  end
+
+  def produce_sync(client, topic, partition, key, value) do
     :brod.produce_sync(client, topic, partition, key, value)
   end
 
