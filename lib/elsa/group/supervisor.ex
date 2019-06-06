@@ -2,8 +2,8 @@ defmodule Elsa.Group.Supervisor do
   use Supervisor
 
   def start_link(init_arg \\ []) do
-    group = Keyword.fetch!(init_arg, :group)
-    supervisor_name = :"elsa_supervisor_#{group}"
+    name = Keyword.fetch!(init_arg, :name)
+    supervisor_name = :"elsa_supervisor_#{name}"
     Supervisor.start_link(__MODULE__, init_arg, name: supervisor_name)
   end
 
