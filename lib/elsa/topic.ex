@@ -1,5 +1,5 @@
 defmodule Elsa.Topic do
-  import Elsa.Util, only: [with_connection: 2, reformat_endpoints: 1]
+  import Elsa.Util, only: [with_connection: 3, reformat_endpoints: 1]
   import Record, only: [defrecord: 2, extract: 2]
 
   defrecord :kpro_rsp, extract(:kpro_rsp, from_lib: "kafka_protocol/include/kpro.hrl")
@@ -14,7 +14,7 @@ defmodule Elsa.Topic do
   end
 
   def create(endpoints, topic, opts \\ []) do
-    with_connection(endpoints, fn connection ->
+    with_connection(endpoints, :controller, fn connection ->
       create_topic_args = %{
         topic: topic,
         num_partitions: Keyword.get(opts, :partitions, 1),
@@ -31,7 +31,7 @@ defmodule Elsa.Topic do
   end
 
   def delete(endpoints, topic) do
-    with_connection(endpoints, fn connection ->
+    with_connection(endpoints, :controller, fn connection ->
       version = Elsa.Util.get_api_version(connection, :delete_topics)
       topic_request = :kpro_req_lib.delete_topics(version, [topic], %{timeout: 5_000})
 

@@ -21,6 +21,21 @@ defmodule Elsa.UtilTest do
       assert_called :kpro.close_connection(:connection), once()
     end
 
+    test "runs function with controller connection" do
+      allow :kpro.connect_controller(any(), any()), return: {:ok, :connection}
+      allow :kpro.close_connection(any()), return: :ok
+
+      result =
+        Util.with_connection([localhost: 9092], :controller, fn connection ->
+          assert :connection == connection
+          :return_value
+        end)
+
+      assert :return_value == result
+      assert_called :kpro.connect_controller([{'localhost', 9092}], []), once()
+      assert_called :kpro.close_connection(:connection), once()
+    end
+
     test "calls close_connection when fun raises an error" do
       allow :kpro.connect_any(any(), any()), return: {:ok, :connection}
       allow :kpro.close_connection(any()), return: :ok
