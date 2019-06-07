@@ -1,10 +1,10 @@
 defmodule Elsa.Util do
   @moduledoc false
 
-  def with_connection(endpoints, fun) when is_function(fun) do
+  def with_connection(endpoints, type \\ :any, fun) when is_function(fun) do
     endpoints
     |> reformat_endpoints()
-    |> :kpro.connect_any([])
+    |> connect(type)
     |> do_with_connection(fun)
   end
 
@@ -17,6 +17,9 @@ defmodule Elsa.Util do
     {_, version} = Map.get(api_versions, api)
     version
   end
+
+  defp connect(endpoints, :controller), do: :kpro.connect_controller(endpoints, [])
+  defp connect(endpoints, _type), do: :kpro.connect_any(endpoints, [])
 
   defp do_with_connection({:ok, connection}, fun) do
     fun.(connection)
