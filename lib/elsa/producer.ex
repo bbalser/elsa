@@ -1,34 +1,27 @@
 defmodule Elsa.Producer do
   @moduledoc """
-  Defines functions to manage producer supervisors and works,
-  as well as send messages to topics.
+  Defines functions to send messages to topics based on either a list of endpoints or a named client.
   """
-
-  def start_producer(endpoints, topic, config \\ []) do
-    name = Keyword.get(config, :name, Elsa.default_client())
-
-    start_client(endpoints, name)
-    :brod.start_producer(name, topic, config)
-  end
-
-  def stop_producer(client, topic), do: :brod_client.stop_producer(client, topic)
-
   def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key \\ "ignored", value)
 
   def produce_sync(endpoints, topic, partition, key, value) when is_list(endpoints) do
     client = Elsa.default_client()
 
-    start_producer(endpoints, topic, name: client)
+    Elsa.Producer.Supervisor.start_producer(endpoints, topic, name: client)
     produce_sync(client, topic, partition, key, value)
   end
 
   def produce_sync(client, topic, partition, key, value) do
-    :brod.produce_sync(client, topic, partition, key, value)
-  end
+    partition_num =
+      case partition do
+        :random ->
+          apply(Elsa.Producer.Partitioner, :random, [client, topic])
+        :md5 ->
+          apply(Elsa.Producer.Partitioner, :md5, [client, topic, key])
+        partition ->
+          partition
+      end
 
-  defp start_client(endpoints, name) do
-    endpoints
-    |> Elsa.Util.reformat_endpoints()
-    |> :brod.start_client(name)
+    :brod.produce_sync(client, topic, partition_num, key, value)
   end
 end
