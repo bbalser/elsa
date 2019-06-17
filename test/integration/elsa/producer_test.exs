@@ -62,6 +62,32 @@ defmodule Elsa.ProducerTest do
     end
   end
 
+  describe "partitioner functions" do
+    test "produces to a topic partition randomly" do
+      Elsa.create_topic(@brokers, "random-topic")
+
+      Supervisor.start_producer(@brokers, "random-topic", name: :elsa_client3)
+
+      Producer.produce_sync(:elsa_client3, "random-topic", :random, "ignored", [{"key1", "value1"}, {"key2", "value2"}])
+
+      parsed_messages = retrieve_results(@brokers, "random-topic", 0, 0)
+
+      assert [{"key1", "value1"}, {"key2", "value2"}] == parsed_messages
+    end
+
+    test "producers to a topic partition based on an md5 hash of the key" do
+      Elsa.create_topic(@brokers, "hashed-topic", partitions: 5)
+
+      Supervisor.start_producer(@brokers, "hashed-topic", name: :elsa_client4)
+
+      Producer.produce_sync(:elsa_client4, "hashed-topic", :md5, "key", "value")
+
+      parsed_messages = retrieve_results(@brokers, "hashed-topic", 1, 0)
+
+      assert [{"key", "value"}] == parsed_messages
+    end
+  end
+
   defp retrieve_results(endpoints, topic, partition, offset) do
     {:ok, {_count, messages}} = :brod.fetch(endpoints, topic, partition, offset)
 

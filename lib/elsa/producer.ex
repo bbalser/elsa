@@ -11,17 +11,15 @@ defmodule Elsa.Producer do
     produce_sync(client, topic, partition, key, value)
   end
 
-  def produce_sync(client, topic, partition, key, value) do
-    partition_num =
-      case partition do
-        :random ->
-          apply(Elsa.Producer.Partitioner, :random, [client, topic])
-        :md5 ->
-          apply(Elsa.Producer.Partitioner, :md5, [client, topic, key])
-        partition ->
-          partition
+  def produce_sync(client, topic, partitioner, key, value) do
+    partition =
+      if is_atom(partitioner) do
+        {:ok, partition_num} = :brod.get_partitions_count(client, topic)
+        apply(Elsa.Producer.Partitioner, partitioner, [partition_num, value])
+      else
+        partitioner
       end
 
-    :brod.produce_sync(client, topic, partition_num, key, value)
+    :brod.produce_sync(client, topic, partition, key, value)
   end
 end

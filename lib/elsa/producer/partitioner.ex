@@ -1,22 +1,12 @@
 defmodule Elsa.Producer.Partitioner do
-  def random(client, topic) do
-    partitions = partition_count(client, topic)
-
-    :crypto.rand_uniform(0, partitions)
+  def random(partition_count, _key) do
+    :crypto.rand_uniform(0, partition_count)
   end
 
-  def md5(client, topic, key) do
-    partitions = partition_count(client, topic)
-
+  def md5(partition_count, key) do
     :crypto.hash(:md5, key)
     |> :binary.bin_to_list()
     |> Enum.sum()
-    |> rem(partitions)
-  end
-
-  defp partition_count(client, topic) do
-    {:ok, partitions} = :brod.get_partitions_count(client, topic)
-
-    partitions
+    |> rem(partition_count)
   end
 end
