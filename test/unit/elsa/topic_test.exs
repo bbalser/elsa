@@ -76,34 +76,40 @@ defmodule Elsa.TopicTest do
 
   describe "list_topics/1" do
     test "extracts topics and partitions as a list of tuples" do
-      metadata = %{topic_metadata: [
-                    %{
-                      partition_metadata: [%{partition: 0}],
-                      topic: "elsa-other-topic"
-                    },
-                    %{
-                      partition_metadata: [%{partition: 0} ,%{partition: 1}],
-                      topic: "elsa-topic"
-                    }
-                    ]}
+      metadata = %{
+        topic_metadata: [
+          %{
+            partition_metadata: [%{partition: 0}],
+            topic: "elsa-other-topic"
+          },
+          %{
+            partition_metadata: [%{partition: 0}, %{partition: 1}],
+            topic: "elsa-topic"
+          }
+        ]
+      }
+
       allow :brod.get_metadata(any(), :all), return: {:ok, metadata}
 
-      assert Elsa.list_topics([localhost: 9092]) == [{"elsa-other-topic", 1}, {"elsa-topic", 2}]
+      assert Elsa.list_topics(localhost: 9092) == [{"elsa-other-topic", 1}, {"elsa-topic", 2}]
     end
   end
 
   describe "exists?/2" do
     test "returns a boolean identifying the presence of a given topic" do
-      metadata = %{topic_metadata: [
-                      %{
-                        partition_metadata: [%{partition: 0}],
-                        topic: "elsa-other-topic"
-                      },
-                      %{
-                        partition_metadata: [%{partition: 0} ,%{partition: 1}],
-                        topic: "elsa-topic"
-                      }
-                    ]}
+      metadata = %{
+        topic_metadata: [
+          %{
+            partition_metadata: [%{partition: 0}],
+            topic: "elsa-other-topic"
+          },
+          %{
+            partition_metadata: [%{partition: 0}, %{partition: 1}],
+            topic: "elsa-topic"
+          }
+        ]
+      }
+
       allow :brod.get_metadata(any(), :all), return: {:ok, metadata}
 
       assert Elsa.Topic.exists?([localhost: 9092], "elsa-other-topic") == true

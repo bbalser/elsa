@@ -1,4 +1,4 @@
-defmodule Elsa.Producer.Supervisor do
+defmodule Elsa.Producer.Manager do
   @moduledoc """
   Defines functions for starting persistent kafka
   producer processes that can be managed by a consuming

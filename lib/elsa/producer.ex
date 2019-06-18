@@ -7,19 +7,17 @@ defmodule Elsa.Producer do
   def produce_sync(endpoints, topic, partition, key, value) when is_list(endpoints) do
     client = Elsa.default_client()
 
-    Elsa.Producer.Supervisor.start_producer(endpoints, topic, name: client)
+    Elsa.Producer.Manager.start_producer(endpoints, topic, name: client)
     produce_sync(client, topic, partition, key, value)
   end
 
-  def produce_sync(client, topic, partitioner, key, value) do
-    partition =
-      if is_atom(partitioner) do
-        {:ok, partition_num} = :brod.get_partitions_count(client, topic)
-        apply(Elsa.Producer.Partitioner, partitioner, [partition_num, value])
-      else
-        partitioner
-      end
+  def produce_sync(client, topic, partitioner, key, value) when is_atom(partitioner) do
+    {:ok, partition_num} = :brod.get_partitions_count(client, topic)
+    partition = Elsa.Producer.Partitioner.partition(partitioner, partition_num, value)
+    produce_sync(client, topic, partition, key, value)
+  end
 
+  def produce_sync(client, topic, partition, key, value) do
     :brod.produce_sync(client, topic, partition, key, value)
   end
 end
