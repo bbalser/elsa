@@ -9,6 +9,8 @@ defmodule Elsa do
 
   defdelegate list_topics(endpoints), to: Elsa.Topic, as: :list
 
+  defdelegate topic?(endpoints, topic), to: Elsa.Topic, as: :exists?
+
   defdelegate create_topic(endpoints, topic, opts \\ []), to: Elsa.Topic, as: :create
 
   defdelegate delete_topic(endpoints, topic), to: Elsa.Topic, as: :delete

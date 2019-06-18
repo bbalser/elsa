@@ -18,6 +18,22 @@ defmodule Elsa.Util do
     version
   end
 
+  def start_client(endpoints, name) do
+    endpoints
+    |> reformat_endpoints()
+    |> :brod.start_link_client(name)
+    |> case do
+      {:ok, client_pid} ->
+        {:ok, client_pid}
+
+      {:error, {:already_started, client_pid}} ->
+        {:ok, client_pid}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   defp connect(endpoints, :controller), do: :kpro.connect_controller(endpoints, [])
   defp connect(endpoints, _type), do: :kpro.connect_any(endpoints, [])
 

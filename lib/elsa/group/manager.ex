@@ -58,10 +58,7 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
-    {:ok, client_pid} =
-      state.brokers
-      |> Elsa.Util.reformat_endpoints()
-      |> :brod.start_link_client(state.name)
+    {:ok, client_pid} = Elsa.Util.start_client(state.brokers, state.name)
 
     {:ok, %{state | client_pid: client_pid}, {:continue, :start_coordinator}}
   end

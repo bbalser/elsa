@@ -13,6 +13,15 @@ defmodule Elsa.Topic do
     end)
   end
 
+  def exists?(endpoints, topic) do
+    topics =
+      endpoints
+      |> list()
+      |> Enum.map(fn {topic, _partition} -> topic end)
+
+    topic in topics
+  end
+
   def create(endpoints, topic, opts \\ []) do
     with_connection(endpoints, :controller, fn connection ->
       create_topic_args = %{
