@@ -1,4 +1,10 @@
 defmodule Elsa.Group.Supervisor do
+  @moduledoc """
+  Orchestrates the creation of dynamic supervisor and worker
+  processes for per-topic consumer groups, manager processes
+  for coordinating topic/partition assignment, and a registry
+  for differentiating named processes between consumer groups.
+  """
   use Supervisor
 
   def start_link(init_arg \\ []) do
@@ -21,6 +27,11 @@ defmodule Elsa.Group.Supervisor do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
+  @doc """
+  Provide a name-spaced process registry identifier for
+  differentiating processes between consumer groups.
+  """
+  @spec registry(String.t()) :: atom()
   def registry(name) do
     :"elsa_registry_#{name}"
   end

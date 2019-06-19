@@ -8,7 +8,7 @@ defmodule Elsa.Util do
   @doc """
   Wrap establishing a connection to a cluster for performing an operation.
   """
-  @spec with_connection(keyword(), atom(), fun()) :: any()
+  @spec with_connection(keyword(), atom(), fun()) :: term()
   def with_connection(endpoints, type \\ :any, fun) when is_function(fun) do
     endpoints
     |> reformat_endpoints()
@@ -40,7 +40,7 @@ defmodule Elsa.Util do
   Create a named client connection process for managing interactions
   with the connected cluster.
   """
-  @spec start_client(keyword(), atom()) :: {:ok, pid()} | {:error, any()}
+  @spec start_client(keyword(), atom()) :: {:ok, pid()} | {:error, term()}
   def start_client(endpoints, name) do
     endpoints
     |> reformat_endpoints()

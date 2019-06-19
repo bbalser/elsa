@@ -40,7 +40,7 @@ defmodule Elsa.Topic do
   keyword list. If the optional configs are not specified by the caller, the
   number of partitions and replicas defaults to 1.
   """
-  @spec create(keyword(), String.t(), keyword()) :: :ok | {:error, any()}
+  @spec create(keyword(), String.t(), keyword()) :: :ok | {:error, term()}
   def create(endpoints, topic, opts \\ []) do
     with_connection(endpoints, :controller, fn connection ->
       create_topic_args = %{
@@ -61,7 +61,7 @@ defmodule Elsa.Topic do
   @doc """
   Deletes the supplied topic from the cluster.
   """
-  @spec delete(keyword(), String.t()) :: :ok | {:error, any()}
+  @spec delete(keyword(), String.t()) :: :ok | {:error, term()}
   def delete(endpoints, topic) do
     with_connection(endpoints, :controller, fn connection ->
       version = Elsa.Util.get_api_version(connection, :delete_topics)
