@@ -70,4 +70,35 @@ defmodule Elsa.UtilTest do
       ])
     end
   end
+
+  describe "chunk_by_byte_size" do
+    test "will create chunks that are less then suppliec chunk_byte_size" do
+      chunks =
+        ?a..?z
+        |> Enum.map(&List.to_string([&1]))
+        |> Elsa.Util.chunk_by_byte_size(10)
+
+      assert length(chunks) == 3
+      assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&List.to_string([&1]))
+      assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&List.to_string([&1]))
+      assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&List.to_string([&1]))
+    end
+
+    test "will create chunks of for {key, value} pairs" do
+      chunks =
+        ?a..?z
+        |> Enum.map(&to_tuple/1)
+        |> Elsa.Util.chunk_by_byte_size(20)
+
+      assert length(chunks) == 3
+      assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&to_tuple/1)
+      assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&to_tuple/1)
+      assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&to_tuple/1)
+    end
+  end
+
+  defp to_tuple(char) do
+    string = List.to_string([char])
+    {string, string}
+  end
 end
