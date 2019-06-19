@@ -59,6 +59,13 @@ defmodule Elsa.Util do
     end
   end
 
+  @doc """
+  Process messages into chunks of size up to the size specified by the calling function in bytes,
+  and determined by the function argument. If no chunk size is specified the default maximum
+  size a chunk will be is approximately 1 megabyte. If no sizing function is provided to construct
+  the appropriately sized chunks, the internal function based on Kernel.byte_size/1 is used.
+  """
+  @spec chunk_by_byte_size(term(), integer(), fun()) :: [term()]
   def chunk_by_byte_size(collection, chunk_byte_size \\ @default_max_chunk_size, function \\ &get_byte_size/1) do
     collection
     |> Enum.chunk_while({0, []}, &chunk(&1, &2, chunk_byte_size, function), &after_chunk/1)
