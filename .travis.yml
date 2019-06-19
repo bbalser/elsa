@@ -10,6 +10,7 @@ install:
   - mix format --check-formatted
 script:
   - mix test
+  - mix test.integration
 deploy:
   skip_cleanup: true
   provider: script
