@@ -1,9 +1,17 @@
 defmodule Elsa.Topic do
+  @moduledoc """
+  Provides functions for managing and interacting with topics in the Kafka cluster.
+  """
   import Elsa.Util, only: [with_connection: 3, reformat_endpoints: 1]
   import Record, only: [defrecord: 2, extract: 2]
 
   defrecord :kpro_rsp, extract(:kpro_rsp, from_lib: "kafka_protocol/include/kpro.hrl")
 
+  @doc """
+  Returns a list of all topics managed by the cluster as tuple of topic name and
+  number of partitions.
+  """
+  @spec list(keyword()) :: [{String.t(), integer()}]
   def list(endpoints) do
     {:ok, metadata} = :brod.get_metadata(reformat_endpoints(endpoints), :all)
 
@@ -13,6 +21,10 @@ defmodule Elsa.Topic do
     end)
   end
 
+  @doc """
+  Confirms or denies the existence of a topic managed by the cluster.
+  """
+  @spec exists?(keyword(), String.t()) :: boolean()
   def exists?(endpoints, topic) do
     topics =
       endpoints
@@ -22,6 +34,13 @@ defmodule Elsa.Topic do
     topic in topics
   end
 
+  @doc """
+  Creates the supplied topic within the cluster. Sets the number of desired
+  partitions and replication factor for the topic based on the optional
+  keyword list. If the optional configs are not specified by the caller, the
+  number of partitions and replicas defaults to 1.
+  """
+  @spec create(keyword(), String.t(), keyword()) :: :ok | {:error, any()}
   def create(endpoints, topic, opts \\ []) do
     with_connection(endpoints, :controller, fn connection ->
       create_topic_args = %{
@@ -39,6 +58,10 @@ defmodule Elsa.Topic do
     end)
   end
 
+  @doc """
+  Deletes the supplied topic from the cluster.
+  """
+  @spec delete(keyword(), String.t()) :: :ok | {:error, any()}
   def delete(endpoints, topic) do
     with_connection(endpoints, :controller, fn connection ->
       version = Elsa.Util.get_api_version(connection, :delete_topics)

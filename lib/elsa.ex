@@ -1,6 +1,9 @@
 defmodule Elsa do
   @moduledoc """
-  Documentation for Elsa.
+  Provides public api to Elsa. Top-level short-cuts to sub-module functions
+  for performing basic interactions with Kafka including listing, creating,
+  deleting, and validating topics. Also provides a function for one-off
+  produce_sync of message(s) to a topic.
   """
 
   import Record

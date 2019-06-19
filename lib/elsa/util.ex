@@ -1,6 +1,14 @@
 defmodule Elsa.Util do
-  @moduledoc false
+  @moduledoc """
+  Provides functions for simplifying first-class interactions (consuming and
+  producing) such as connecting to a cluster and establishing a persistent
+  client process for interacting with a cluster.
+  """
 
+  @doc """
+  Wrap establishing a connection to a cluster for performing an operation.
+  """
+  @spec with_connection(keyword(), atom(), fun()) :: any()
   def with_connection(endpoints, type \\ :any, fun) when is_function(fun) do
     endpoints
     |> reformat_endpoints()
@@ -8,16 +16,31 @@ defmodule Elsa.Util do
     |> do_with_connection(fun)
   end
 
+  @doc """
+  Convert supplied cluster endpoints from common keyword list format to
+  brod-compatible tuple.
+  """
+  @spec reformat_endpoints(keyword()) :: [{charlist(), integer()}]
   def reformat_endpoints(endpoints) do
     Enum.map(endpoints, fn {key, value} -> {to_charlist(key), value} end)
   end
 
+  @doc """
+  Retrieve the api version of the desired operation supported by the
+  connected cluster.
+  """
+  @spec get_api_version(pid(), atom()) :: integer()
   def get_api_version(connection, api) do
     {:ok, api_versions} = :kpro.get_api_versions(connection)
     {_, version} = Map.get(api_versions, api)
     version
   end
 
+  @doc """
+  Create a named client connection process for managing interactions
+  with the connected cluster.
+  """
+  @spec start_client(keyword(), atom()) :: {:ok, pid()} | {:error, any()}
   def start_client(endpoints, name) do
     endpoints
     |> reformat_endpoints()
