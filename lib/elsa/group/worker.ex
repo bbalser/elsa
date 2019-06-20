@@ -1,4 +1,11 @@
 defmodule Elsa.Group.Worker do
+  @moduledoc """
+  Defines the worker GenServer that is managed by the DynamicSupervisor.
+  Workers are instantiated and assigned to a specific topic/partition
+  and process messages according to the specified message handler module
+  passed in from the manager before calling the manager's ack function to
+  notify the cluster the messages have been successfully processed.
+  """
   use GenServer, restart: :temporary
   require Logger
 
@@ -12,6 +19,9 @@ defmodule Elsa.Group.Worker do
   @subscribe_retries 20
 
   defmodule State do
+    @moduledoc """
+    The running state of the worker process.
+    """
     defstruct [
       :name,
       :topic,
@@ -26,10 +36,19 @@ defmodule Elsa.Group.Worker do
     ]
   end
 
+  @doc """
+  Trigger the worker to gracefully disengage itself
+  from the supervision tree, unsubscribe from the topic
+  and partition and initiate its own stop sequence.
+  """
+  @spec unsubscribe(pid()) :: {:stop, :normal, term(), struct()}
   def unsubscribe(pid) do
     GenServer.call(pid, :unsubscribe)
   end
 
+  @doc """
+  Start the worker process and init the state with the given config.
+  """
   def start_link(init_args) do
     GenServer.start_link(__MODULE__, init_args)
   end

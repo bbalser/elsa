@@ -19,7 +19,7 @@ by adding `elsa` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:elsa, "~> 0.2.0"}
+    {:elsa, "~> 0.2.1"}
   ]
 end
 ```

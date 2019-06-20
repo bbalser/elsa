@@ -1,8 +1,16 @@
 defmodule Elsa.Util do
-  @moduledoc false
+  @moduledoc """
+  Provides functions for simplifying first-class interactions (consuming and
+  producing) such as connecting to a cluster and establishing a persistent
+  client process for interacting with a cluster.
+  """
 
   @default_max_chunk_size 900_000
 
+  @doc """
+  Wrap establishing a connection to a cluster for performing an operation.
+  """
+  @spec with_connection(keyword(), atom(), fun()) :: term()
   def with_connection(endpoints, type \\ :any, fun) when is_function(fun) do
     endpoints
     |> reformat_endpoints()
@@ -10,16 +18,31 @@ defmodule Elsa.Util do
     |> do_with_connection(fun)
   end
 
+  @doc """
+  Convert supplied cluster endpoints from common keyword list format to
+  brod-compatible tuple.
+  """
+  @spec reformat_endpoints(keyword()) :: [{charlist(), integer()}]
   def reformat_endpoints(endpoints) do
     Enum.map(endpoints, fn {key, value} -> {to_charlist(key), value} end)
   end
 
+  @doc """
+  Retrieve the api version of the desired operation supported by the
+  connected cluster.
+  """
+  @spec get_api_version(pid(), atom()) :: integer()
   def get_api_version(connection, api) do
     {:ok, api_versions} = :kpro.get_api_versions(connection)
     {_, version} = Map.get(api_versions, api)
     version
   end
 
+  @doc """
+  Create a named client connection process for managing interactions
+  with the connected cluster.
+  """
+  @spec start_client(keyword(), atom()) :: {:ok, pid()} | {:error, term()}
   def start_client(endpoints, name) do
     endpoints
     |> reformat_endpoints()
@@ -36,6 +59,13 @@ defmodule Elsa.Util do
     end
   end
 
+  @doc """
+  Process messages into chunks of size up to the size specified by the calling function in bytes,
+  and determined by the function argument. If no chunk size is specified the default maximum
+  size a chunk will be is approximately 1 megabyte. If no sizing function is provided to construct
+  the appropriately sized chunks, the internal function based on Kernel.byte_size/1 is used.
+  """
+  @spec chunk_by_byte_size(term(), integer(), fun()) :: [term()]
   def chunk_by_byte_size(collection, chunk_byte_size \\ @default_max_chunk_size, function \\ &get_byte_size/1) do
     collection
     |> Enum.chunk_while({0, []}, &chunk(&1, &2, chunk_byte_size, function), &after_chunk/1)

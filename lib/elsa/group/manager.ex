@@ -1,4 +1,10 @@
 defmodule Elsa.Group.Manager do
+  @moduledoc """
+  Defines the GenServer process that coordinates assignment
+  of workers to topics/partitions of a given consumer group.
+  Tracks consumer group state and reinstantiates workers to
+  the last unacknowledged message in the event of failure.
+  """
   use GenServer
   require Logger
   import Elsa.Group.Supervisor, only: [registry: 1]
@@ -7,6 +13,9 @@ defmodule Elsa.Group.Manager do
   @behaviour :brod_group_member
 
   defmodule State do
+    @moduledoc """
+    The running state of the consumer group manager process.
+    """
     defstruct [
       :brokers,
       :name,
@@ -26,20 +35,36 @@ defmodule Elsa.Group.Manager do
     :ok
   end
 
+  @doc """
+  Trigger the assignment of workers to a given topic and partition
+  """
+  @spec assignments_received(pid(), term(), integer(), [tuple()]) :: {:no_reply, struct()}
   def assignments_received(pid, _group, generation_id, assignments) do
     GenServer.cast(pid, {:process_assignments, generation_id, assignments})
   end
 
+  @doc """
+  Trigger deallocation of all workers from the consumer group and stop
+  worker processes.
+  """
+  @spec assignments_revoked(pid()) :: {:no_reply, struct()}
   def assignments_revoked(pid) do
     Logger.error("Assignments revoked : #{inspect(pid)}")
     GenServer.cast(pid, :revoke_assignments)
   end
 
+  @doc """
+  Trigger acknowledgement of processed messages back to the cluster.
+  """
+  @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: {:no_reply, struct()}
   def ack(name, topic, partition, generation_id, offset) do
     group_manager = {:via, Registry, {registry(name), __MODULE__}}
     GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
   end
 
+  @doc """
+  Start the group manager process and register a name with the process registry.
+  """
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     GenServer.start_link(__MODULE__, opts, name: {:via, Registry, {registry(name), __MODULE__}})
