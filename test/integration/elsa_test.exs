@@ -51,11 +51,11 @@ defmodule ElsaTest do
     end
   end
 
-  describe "produce_sync/5" do
+  describe "produce/4" do
     test "will produce message to kafka topic" do
       Elsa.create_topic(@endpoints, "topic1")
-      Elsa.produce_sync(@endpoints, "topic1", 0, "key", "value1")
-      Elsa.produce_sync(@endpoints, "topic1", 0, "key2", "value2")
+      Elsa.produce(@endpoints, "topic1", {"key", "value1"})
+      Elsa.produce(@endpoints, "topic1", [{"key2", "value2"}])
 
       {:ok, {_count, messages}} = :brod.fetch([{'localhost', 9092}], "topic1", 0, 0)
 
