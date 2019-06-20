@@ -36,6 +36,7 @@ defmodule Elsa do
       {:ok, {partition_offset, messages}} ->
         stripped_messages = Enum.map(messages, &strip_messages/1)
         {:ok, partition_offset, stripped_messages}
+
       {:error, reason} ->
         {:error, reason}
     end
