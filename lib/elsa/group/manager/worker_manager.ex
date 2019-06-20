@@ -44,7 +44,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
     |> Map.values()
     |> Enum.each(fn worker ->
       Process.demonitor(worker.ref)
-      GenServer.call(worker.pid, :unsubscribe)
+      Elsa.Group.Worker.unsubscribe(worker.pid)
     end)
 
     %{}

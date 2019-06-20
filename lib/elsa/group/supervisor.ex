@@ -5,11 +5,11 @@ defmodule Elsa.Group.Supervisor do
   for coordinating topic/partition assignment, and a registry
   for differentiating named processes between consumer groups.
   """
-  use Supervisor
+  use Supervisor, restart: :transient
 
   def start_link(init_arg \\ []) do
     name = Keyword.fetch!(init_arg, :name)
-    supervisor_name = :"elsa_supervisor_#{name}"
+    supervisor_name = supervisor_name(name)
     Supervisor.start_link(__MODULE__, init_arg, name: supervisor_name)
   end
 
@@ -35,6 +35,30 @@ defmodule Elsa.Group.Supervisor do
   def registry(name) do
     :"elsa_registry_#{name}"
   end
+
+  @doc """
+  Ensures descendant workers have unsubscribed and unlinked from supervision
+  before gracefully terminating the supervisor process and all remaining children.
+  """
+  @spec stop(String.t()) :: :ok
+  def stop(name) do
+    supervisor_name = supervisor_name(name)
+
+    Supervisor.which_children(supervisor_name)
+    |> Enum.map(fn {module, manager_pid, _, _} ->
+      case module do
+        Elsa.Group.Manager ->
+          Elsa.Group.Manager.assignments_revoked(manager_pid)
+
+        _ ->
+          :ok
+      end
+    end)
+
+    Supervisor.stop(supervisor_name, {:shutdown, "completed work for this consumer group"})
+  end
+
+  defp supervisor_name(name), do: :"elsa_supervisor_#{name}"
 
   defp manager_args(args) do
     args
