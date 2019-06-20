@@ -3,6 +3,8 @@ defmodule Elsa.Producer do
   Defines functions to write messages to topics based on either a list of endpoints or a named client.
   """
 
+  alias Elsa.Util
+
   @doc """
   Write the supplied message(s) to the desired topic/partition via an endpoint list or named client.
   If no client or endpoint is supplied, the default named client is chosen. If no partition is supplied,
@@ -15,30 +17,54 @@ defmodule Elsa.Producer do
   from the total available partitions of the topic or assign an integer based on an md5 hash of the messages
   to be written respectively.
   """
-  @spec produce_sync(
-          keyword() | atom(),
-          String.t(),
-          integer() | atom(),
-          String.t(),
-          String.t() | [{String.t(), String.t()}]
-        ) ::
-          :ok | no_return()
-  def produce_sync(client \\ Elsa.default_client(), topic, partition \\ 0, key \\ "ignored", value)
-
-  def produce_sync(endpoints, topic, partition, key, value) when is_list(endpoints) do
-    client = Elsa.default_client()
+  def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
+    client = get_client(opts)
 
     Elsa.Producer.Manager.start_producer(endpoints, topic, name: client)
-    produce_sync(client, topic, partition, key, value)
+    produce_sync(topic, messages, Keyword.put(opts, :client, client))
   end
 
-  def produce_sync(client, topic, partitioner, key, value) when is_atom(partitioner) do
-    {:ok, partition_num} = :brod.get_partitions_count(client, topic)
-    partition = Elsa.Producer.Partitioner.partition(partitioner, partition_num, value)
-    produce_sync(client, topic, partition, key, value)
+  def produce_sync(topic, messages, opts \\ [])
+
+  def produce_sync(topic, messages, opts) when is_list(messages) do
+    client = get_client(opts)
+
+    case Keyword.get(opts, :partition) do
+      nil ->
+        messages
+        |> Enum.map(fn {key, value} -> {get_partition(client, topic, key, opts), {key, value}} end)
+        |> Enum.group_by(fn {partition, _} -> partition end, fn {_, message} -> message end)
+        |> Enum.each(fn {partition, messages} -> do_produce_sync(client, topic, partition, messages) end)
+
+      partition ->
+        do_produce_sync(client, topic, partition, messages)
+    end
   end
 
-  def produce_sync(client, topic, partition, key, value) do
-    :brod.produce_sync(client, topic, partition, key, value)
+  def produce_sync(topic, {key, value}, opts) do
+    client = get_client(opts)
+    partition = get_partition(client, topic, key, opts)
+
+    do_produce_sync(client, topic, partition, [{key, value}])
+  end
+
+  defp do_produce_sync(client, topic, partition, messages) do
+    messages
+    |> Util.chunk_by_byte_size()
+    |> Enum.each(fn chunk -> :brod.produce_sync(client, topic, partition, "", chunk) end)
+  end
+
+  defp get_client(opts) do
+    Keyword.get_lazy(opts, :client, &Elsa.default_client/0)
+  end
+
+  defp get_partition(client, topic, key, opts) do
+    Keyword.get_lazy(opts, :partition, fn ->
+      {:ok, partition_num} = :brod.get_partitions_count(client, topic)
+
+      opts
+      |> Keyword.get(:partitioner, :default)
+      |> Elsa.Producer.Partitioner.partition(partition_num, key)
+    end)
   end
 end

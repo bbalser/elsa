@@ -58,8 +58,9 @@ defmodule Elsa.Group.Manager.WorkerManager do
   @spec restart_worker(map(), reference(), struct()) :: map()
   def restart_worker(workers, ref, %Elsa.Group.Manager.State{} = state) do
     worker = get_by_ref(workers, ref)
-    new_offset = if worker.latest_offset == :undefined, do: :undefined, else: worker.latest_offset
-    assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: new_offset)
+
+    assignment =
+      brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: worker.latest_offset)
 
     start_worker(workers, worker.generation_id, assignment, state)
   end

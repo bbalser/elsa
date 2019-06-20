@@ -5,6 +5,12 @@ defmodule Elsa.Producer.Partitioner do
   """
 
   @doc """
+  Defaults partition to 0
+  """
+  @spec partition(:default, integer(), term()) :: integer()
+  def partition(:default, _count, _key), do: 0
+
+  @doc """
   Randomly choose a topic partition uniformely from
   the available total number of partitions.
   """

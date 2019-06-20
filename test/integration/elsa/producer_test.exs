@@ -42,7 +42,10 @@ defmodule Elsa.ProducerTest do
       Elsa.create_topic(@brokers, "producer-topic2", partitions: 2)
       Manager.start_producer(@brokers, "producer-topic2", name: :elsa_client2)
 
-      Producer.produce_sync(:elsa_client2, "producer-topic2", 1, "ignored", [{"key1", "value1"}, {"key2", "value2"}])
+      Producer.produce_sync("producer-topic2", [{"key1", "value1"}, {"key2", "value2"}],
+        client: :elsa_client2,
+        partition: 1
+      )
 
       parsed_messages = retrieve_results(@brokers, "producer-topic2", 1, 0)
 
@@ -54,7 +57,7 @@ defmodule Elsa.ProducerTest do
     test "produces to the specified topic with no prior broker" do
       Elsa.create_topic(@brokers, "producer-topic3")
 
-      Producer.produce_sync(@brokers, "producer-topic3", 0, "ignored", [{"key1", "value1"}, {"key2", "value2"}])
+      Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", "value2"}], partition: 0)
 
       parsed_messages = retrieve_results(@brokers, "producer-topic3", 0, 0)
 
@@ -68,7 +71,10 @@ defmodule Elsa.ProducerTest do
 
       Manager.start_producer(@brokers, "random-topic", name: :elsa_client3)
 
-      Producer.produce_sync(:elsa_client3, "random-topic", :random, "ignored", [{"key1", "value1"}, {"key2", "value2"}])
+      Producer.produce_sync("random-topic", [{"key1", "value1"}, {"key2", "value2"}],
+        client: :elsa_client3,
+        partitioner: :random
+      )
 
       parsed_messages = retrieve_results(@brokers, "random-topic", 0, 0)
 
@@ -80,7 +86,7 @@ defmodule Elsa.ProducerTest do
 
       Manager.start_producer(@brokers, "hashed-topic", name: :elsa_client4)
 
-      Producer.produce_sync(:elsa_client4, "hashed-topic", :md5, "key", "value")
+      Producer.produce_sync("hashed-topic", {"key", "value"}, client: :elsa_client4, partitioner: :md5)
 
       parsed_messages = retrieve_results(@brokers, "hashed-topic", 1, 0)
 
