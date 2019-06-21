@@ -22,9 +22,17 @@ defmodule Elsa do
 
   defdelegate produce_sync(topic, messages, opts \\ []), to: Elsa.Producer
 
-  def fetch() do
-  end
+  defdelegate fetch(endpoints, topic, opts \\ []), to: Elsa.Fetch
 
+  @doc """
+  Define a default client name for establishing persistent connections to
+  the Kafka cluster by producers and consumers. Useful for optimizing
+  interactions by passing the identifier of a standing connection instead
+  of instantiating a new one at each interaction, but when only a single connection
+  is required, aleviating the need for the caller to differentiate and pass
+  around a name.
+  """
+  @spec default_client() :: atom()
   def default_client(), do: :elsa_default_client
 
   defmodule ConnectError do
