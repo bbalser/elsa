@@ -71,6 +71,21 @@ defmodule Elsa.Util do
     |> Enum.chunk_while({0, []}, &chunk(&1, &2, chunk_byte_size, function), &after_chunk/1)
   end
 
+  @doc """
+  Return the number of partitions for a given topic. Bypasses the need for a persistent client
+  for lighter weight interactions from one-off calls.
+  """
+  @spec partition_count(keyword(), String.t()) :: integer()
+  def partition_count(endpoints, topic) do
+    {:ok, metadata} = :brod.get_metadata(reformat_endpoints(endpoints), [topic])
+
+    metadata.topic_metadata
+    |> Enum.map(fn topic_metadata ->
+      Enum.count(topic_metadata.partition_metadata)
+    end)
+    |> hd()
+  end
+
   defp connect(endpoints, :controller), do: :kpro.connect_controller(endpoints, [])
   defp connect(endpoints, _type), do: :kpro.connect_any(endpoints, [])
 

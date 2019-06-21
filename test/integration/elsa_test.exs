@@ -65,31 +65,4 @@ defmodule ElsaTest do
       assert [{"key", "value1"}, {"key2", "value2"}] == parsed_messages
     end
   end
-
-  describe "fetch/3" do
-    test "fetches from the default offset and partition" do
-      Elsa.create_topic(@endpoints, "fetch1")
-      Elsa.produce(@endpoints, "fetch1", [{"key1", "value1"}, {"key2", "value2"}, {"key3", "value3"}])
-
-      {:ok, offset, messages} = Elsa.fetch(@endpoints, "fetch1")
-      values = Enum.map(messages, fn {_offset, _key, value} -> value end)
-
-      assert 3 == offset
-      assert 3 == Enum.count(messages)
-      assert ["value1", "value2", "value3"] == values
-    end
-
-    test "fetches from the specified offset and partition" do
-      Elsa.create_topic(@endpoints, "fetch2", partitions: 2)
-      Elsa.produce(@endpoints, "fetch2", [{"key1", "value1"}, {"key2", "value2"}])
-      Elsa.produce(@endpoints, "fetch2", [{"key3", "value3"}, {"key4", "value4"}], partition: 1)
-
-      {:ok, offset, messages} = Elsa.fetch(@endpoints, "fetch2", partition: 1)
-      values = Enum.map(messages, fn {_offset, _key, value} -> value end)
-
-      assert 2 == offset
-      assert 2 == Enum.count(messages)
-      assert ["value3", "value4"] == values
-    end
-  end
 end
