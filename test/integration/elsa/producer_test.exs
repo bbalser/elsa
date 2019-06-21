@@ -1,6 +1,8 @@
 defmodule Elsa.ProducerTest do
   use ExUnit.Case
   use Divo
+  import Checkov
+
   alias Elsa.Producer
   alias Elsa.Producer.Manager
   require Elsa
@@ -27,29 +29,32 @@ defmodule Elsa.ProducerTest do
   end
 
   describe "preconfigured broker" do
-    test "produces to topic with default client and partition" do
-      Elsa.create_topic(@brokers, "producer-topic1")
-      Manager.start_producer(@brokers, "producer-topic1")
+    data_test "produces to topic" do
+      Elsa.create_topic(@brokers, topic, partitions: num_partitions)
+      Manager.start_producer(@brokers, topic, producer_opts)
 
-      Producer.produce_sync("producer-topic1", [{"key1", "value1"}, {"key2", "value2"}])
+      Producer.produce_sync(topic, messages, produce_opts)
 
-      parsed_messages = retrieve_results(@brokers, "producer-topic1", 0, 0)
+      parsed_messages = retrieve_results(@brokers, topic, Keyword.get(produce_opts, :partition, 0), 0)
 
-      assert [{"key1", "value1"}, {"key2", "value2"}] == parsed_messages
-    end
+      expected = if expected_messages == :same, do: messages, else: expected_messages
 
-    test "produces to topic with named client and partition" do
-      Elsa.create_topic(@brokers, "producer-topic2", partitions: 2)
-      Manager.start_producer(@brokers, "producer-topic2", name: :elsa_client2)
+      assert expected == parsed_messages
 
-      Producer.produce_sync("producer-topic2", [{"key1", "value1"}, {"key2", "value2"}],
-        client: :elsa_client2,
-        partition: 1
-      )
-
-      parsed_messages = retrieve_results(@brokers, "producer-topic2", 1, 0)
-
-      assert [{"key1", "value1"}, {"key2", "value2"}] == parsed_messages
+      where [
+        [:topic, :num_partitions, :messages, :expected_messages, :producer_opts, :produce_opts],
+        ["dt-producer-topic1", 1, [{"key1", "value1"}, {"key2", "value2"}], :same, [], []],
+        [
+          "dt-producer-topic2",
+          2,
+          [{"key1", "value1"}, {"key2", "value2"}],
+          :same,
+          [name: :elsa_client2],
+          [client: :elsa_client2, partition: 1]
+        ],
+        ["dt-producer-topic3", 1, "this is the message", [{"", "this is the message"}], [], []],
+        ["dt-producer-topic4", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [], []]
+      ]
     end
   end
 

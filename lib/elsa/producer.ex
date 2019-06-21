@@ -32,7 +32,7 @@ defmodule Elsa.Producer do
     case Keyword.get(opts, :partition) do
       nil ->
         messages
-        |> Enum.map(fn {key, value} -> {get_partition(client, topic, key, opts), {key, value}} end)
+        |> Enum.map(&transform_message(&1, client, topic, opts))
         |> Enum.group_by(fn {partition, _} -> partition end, fn {_, message} -> message end)
         |> Enum.each(fn {partition, messages} -> do_produce_sync(client, topic, partition, messages) end)
 
@@ -46,6 +46,21 @@ defmodule Elsa.Producer do
     partition = get_partition(client, topic, key, opts)
 
     do_produce_sync(client, topic, partition, [{key, value}])
+  end
+
+  def produce_sync(topic, message, opts) do
+    client = get_client(opts)
+    partition = get_partition(client, topic, "", opts)
+
+    do_produce_sync(client, topic, partition, [{"", message}])
+  end
+
+  defp transform_message({key, value}, client, topic, opts) do
+    {get_partition(client, topic, key, opts), {key, value}}
+  end
+
+  defp transform_message(message, client, topic, opts) do
+    {get_partition(client, topic, "", opts), {"", message}}
   end
 
   defp do_produce_sync(client, topic, partition, messages) do
