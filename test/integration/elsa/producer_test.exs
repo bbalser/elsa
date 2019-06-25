@@ -53,7 +53,8 @@ defmodule Elsa.ProducerTest do
           [client: :elsa_client2, partition: 1]
         ],
         ["dt-producer-topic3", 1, "this is the message", [{"", "this is the message"}], [], []],
-        ["dt-producer-topic4", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [], []]
+        ["dt-producer-topic4", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [], []],
+        ["dt-producer-topic5", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [], [partition: 0]]
       ]
     end
   end
