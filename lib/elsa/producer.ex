@@ -65,9 +65,13 @@ defmodule Elsa.Producer do
 
   defp do_produce_sync(client, topic, partition, messages) do
     messages
+    |> Enum.map(&wrap_with_key/1)
     |> Util.chunk_by_byte_size()
     |> Enum.each(fn chunk -> :brod.produce_sync(client, topic, partition, "", chunk) end)
   end
+
+  defp wrap_with_key({key, value} = message), do: message
+  defp wrap_with_key(message), do: {"", message}
 
   defp get_client(opts) do
     Keyword.get_lazy(opts, :client, &Elsa.default_client/0)
