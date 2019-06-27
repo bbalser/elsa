@@ -17,8 +17,8 @@ defmodule Elsa.Fetch do
 
     case :brod.fetch(endpoints, topic, partition, offset) do
       {:ok, {partition_offset, messages}} ->
-        offset_messages = Enum.map(messages, &messages_with_offset/1)
-        {:ok, partition_offset, offset_messages}
+        unwrapped_messages = Enum.map(messages, &unwrap_messages(&1, partition))
+        {:ok, partition_offset, unwrapped_messages}
 
       {:error, reason} ->
         {:error, reason}
@@ -26,28 +26,47 @@ defmodule Elsa.Fetch do
   end
 
   @doc """
-  Retrieves all messages on a given topic across all partitions,
-  ordering by the timestamp attached to the message.
+  Retrieves all messages on a given topic partition. Evaluates
+  lazily, returning a `Stream` resource containing the messages.
   """
-  @spec fetch_all(keyword(), String.t(), keyword()) :: list()
-  def fetch_all(endpoints, topic, opts \\ []) do
+  @spec fetch_partition_stream(keyword(), String.t(), keyword()) :: Enumerable.t()
+  def fetch_partition_stream(endpoints, topic, opts \\ []) do
     offset = Keyword.get(opts, :offset, 0)
-    time = Keyword.get(opts, :time, 0)
+    partition = Keyword.get(opts, :partition, 0)
+
+    Stream.resource(
+      fn -> offset end,
+      fn offset ->
+        case fetch(endpoints, topic, partition: partition, offset: offset) do
+          {:ok, _partition_offset, messages} ->
+            next_offset = offset + Enum.count(messages)
+            {messages, next_offset}
+
+          {:ok, {_, []}} ->
+            {:halt, offset}
+
+          {:error, _} ->
+            {:halt, offset}
+        end
+      end,
+      fn offset -> offset end
+    )
+  end
+
+  @doc """
+  Retrieves all messages on a given topic across all partitions.
+  Evaluates lazily, returning a `Stream` resource containing the messages.
+  """
+  @spec fetch_topic_stream(keyword(), String.t(), keyword()) :: Enumerable.t()
+  def fetch_topic_stream(endpoints, topic, opts \\ []) do
+    offset = Keyword.get(opts, :offset, 0)
     partitions = Elsa.Util.partition_count(endpoints, topic) - 1
 
     Enum.reduce(0..partitions, [], fn partition, acc ->
-      case :brod.fetch(endpoints, topic, partition, offset) do
-        {:ok, {_, messages}} ->
-          time_messages = Enum.map(messages, &messages_with_time(&1, partition))
-          [time_messages | acc]
-
-        {:error, _} ->
-          acc
-      end
+      partition_stream = fetch_partition_stream(endpoints, topic, partition: partition, offset: offset)
+      [partition_stream | acc]
     end)
-    |> List.flatten()
-    |> Enum.filter(fn {timestamp, _, _, _, _} -> timestamp >= time end)
-    |> Enum.sort(&(elem(&1, 0) <= elem(&2, 0)))
+    |> Stream.concat()
   end
 
   @doc """
@@ -58,29 +77,21 @@ defmodule Elsa.Fetch do
   the message values but can be optionally switched to search on the message key
   by supplying the `search_by_key: true` option.
   """
-  @spec search(keyword(), String.t(), String.t(), keyword()) :: list()
+  @spec search(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
   def search(endpoints, topic, search_term, opts \\ []) do
     search_by = if Keyword.get(opts, :search_by_key), do: :key, else: :value
-    all_messages = fetch_all(endpoints, topic, opts)
+    all_messages = fetch_topic_stream(endpoints, topic, opts)
 
-    Enum.reduce(all_messages, [], fn message, acc ->
-      case search_by(message, search_term, search_by) do
-        true ->
-          [message | acc]
-
-        false ->
-          acc
-      end
+    Stream.filter(all_messages, fn message ->
+      search_by(message, search_term, search_by)
     end)
-    |> Enum.reverse()
   end
 
-  defp messages_with_offset({_, offset, key, value, _, _, _}), do: {offset, key, value}
-  defp messages_with_time({_, offset, key, value, _, time, _}, partition), do: {time, partition, offset, key, value}
+  defp unwrap_messages({_, offset, key, value, _, time, _}, partition), do: {partition, offset, key, value, time}
 
-  defp search_by({_, _, _, _, value}, search_term, :value), do: search_term(value, search_term)
+  defp search_by({_, _, _, value, _}, search_term, :value), do: search_term(value, search_term)
 
-  defp search_by({_, _, _, key, _}, search_term, :key), do: search_term(key, search_term)
+  defp search_by({_, _, key, _, _}, search_term, :key), do: search_term(key, search_term)
 
   defp search_term(term, search) do
     normalized_term = String.downcase(term)

@@ -70,7 +70,7 @@ defmodule Elsa.Producer do
     |> Enum.each(fn chunk -> :brod.produce_sync(client, topic, partition, "", chunk) end)
   end
 
-  defp wrap_with_key({key, value} = message), do: message
+  defp wrap_with_key({_key, _value} = message), do: message
   defp wrap_with_key(message), do: {"", message}
 
   defp get_client(opts) do
