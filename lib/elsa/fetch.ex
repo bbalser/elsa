@@ -17,8 +17,8 @@ defmodule Elsa.Fetch do
 
     case :brod.fetch(endpoints, topic, partition, offset) do
       {:ok, {partition_offset, messages}} ->
-        offset_messages = Enum.map(messages, &messages_with_offset/1)
-        {:ok, partition_offset, offset_messages}
+        unwrapped_messages = Enum.map(messages, &unwrap_messages(&1, partition))
+        {:ok, partition_offset, unwrapped_messages}
 
       {:error, reason} ->
         {:error, reason}
@@ -26,66 +26,96 @@ defmodule Elsa.Fetch do
   end
 
   @doc """
-  Retrieves all messages on a given topic across all partitions,
-  ordering by the timestamp attached to the message.
+  Retrieves all messages on a given topic across all partitions by default.
+  Evaluates lazily, returning a `Stream` resource containing the messages.
+  By default the starting offset is the earliest message offset and fetching
+  continues until the latest offset at the time the stream is instantiated.
+  Refine the scope of stream fetch by passing the `start_offset` and `end_offset`
+  keyword arguments.
   """
-  @spec fetch_all(keyword(), String.t(), keyword()) :: list()
-  def fetch_all(endpoints, topic, opts \\ []) do
-    offset = Keyword.get(opts, :offset, 0)
-    time = Keyword.get(opts, :time, 0)
-    partitions = Elsa.Util.partition_count(endpoints, topic) - 1
+  @spec fetch_stream(keyword(), String.t(), keyword()) :: Enumerable.t()
+  def fetch_stream(endpoints, topic, opts \\ []) do
+    partitions =
+      case Keyword.get(opts, :partition) do
+        nil ->
+          0..(Elsa.Util.partition_count(endpoints, topic) - 1)
 
-    Enum.reduce(0..partitions, [], fn partition, acc ->
-      case :brod.fetch(endpoints, topic, partition, offset) do
-        {:ok, {_, messages}} ->
-          time_messages = Enum.map(messages, &messages_with_time(&1, partition))
-          [time_messages | acc]
-
-        {:error, _} ->
-          acc
+        partition ->
+          [partition]
       end
+
+    Enum.reduce(partitions, [], fn partition, acc ->
+      partition_stream = fetch_partition_stream(endpoints, topic, partition, opts)
+      [partition_stream | acc]
     end)
-    |> List.flatten()
-    |> Enum.filter(fn {timestamp, _, _, _, _} -> timestamp >= time end)
-    |> Enum.sort(&(elem(&1, 0) <= elem(&2, 0)))
+    |> Stream.concat()
   end
 
   @doc """
-  Retrieves an array of messages containing the supplied search string,
-  sorted by time and with the partition and offset for reference. Search can
-  be limited by an offset and time which are passed through to fetch_all/3 call
+  Retrieves a stream of messages containing the supplied search string. Search
+  can be limited by an offset which is passed through to fetch_stream/3 call
   retrieving the messages to search. By default, the search is applied against
   the message values but can be optionally switched to search on the message key
-  by supplying the `search_by_key: true` option.
+  by supplying the `search_by_key: true` option. All options for fetch_stream/3
+  are respected for restricting the search scope.
   """
-  @spec search(keyword(), String.t(), String.t(), keyword()) :: list()
+  @spec search(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
   def search(endpoints, topic, search_term, opts \\ []) do
     search_by = if Keyword.get(opts, :search_by_key), do: :key, else: :value
-    all_messages = fetch_all(endpoints, topic, opts)
+    all_messages = fetch_stream(endpoints, topic, opts)
 
-    Enum.reduce(all_messages, [], fn message, acc ->
-      case search_by(message, search_term, search_by) do
-        true ->
-          [message | acc]
-
-        false ->
-          acc
-      end
+    Stream.filter(all_messages, fn message ->
+      search_by(message, search_term, search_by)
     end)
-    |> Enum.reverse()
   end
 
-  defp messages_with_offset({_, offset, key, value, _, _, _}), do: {offset, key, value}
-  defp messages_with_time({_, offset, key, value, _, time, _}, partition), do: {time, partition, offset, key, value}
+  defp fetch_partition_stream(endpoints, topic, partition, opts) do
+    Stream.resource(
+      fn ->
+        start_offset = retrieve_offset(opts, :start_offset, endpoints, topic, partition)
+        end_offset = retrieve_offset(opts, :end_offset, endpoints, topic, partition)
 
-  defp search_by({_, _, _, _, value}, search_term, :value), do: search_term(value, search_term)
+        {start_offset, end_offset}
+      end,
+      fn {current_offset, end_offset} ->
+        case current_offset < end_offset do
+          true ->
+            {:ok, _offset, messages} = fetch(endpoints, topic, partition: partition, offset: current_offset)
+            next_offset = current_offset + Enum.count(messages)
+            {messages, {next_offset, end_offset}}
 
-  defp search_by({_, _, _, key, _}, search_term, :key), do: search_term(key, search_term)
+          false ->
+            {:halt, {current_offset, end_offset}}
+        end
+      end,
+      fn offset -> offset end
+    )
+  end
+
+  defp unwrap_messages({_, offset, key, value, _, time, _}, partition), do: {partition, offset, key, value, time}
+
+  defp search_by({_, _, _, value, _}, search_term, :value), do: search_term(value, search_term)
+
+  defp search_by({_, _, key, _, _}, search_term, :key), do: search_term(key, search_term)
 
   defp search_term(term, search) do
     normalized_term = String.downcase(term)
     normalized_search = String.downcase(search)
 
     String.contains?(normalized_term, normalized_search)
+  end
+
+  defp retrieve_offset(opts, :start_offset, endpoints, topic, partition) do
+    Keyword.get_lazy(opts, :start_offset, fn ->
+      {:ok, start_offset} = :brod.resolve_offset(endpoints, topic, partition, :earliest)
+      start_offset
+    end)
+  end
+
+  defp retrieve_offset(opts, :end_offset, endpoints, topic, partition) do
+    Keyword.get_lazy(opts, :end_offset, fn ->
+      {:ok, end_offset} = :brod.resolve_offset(endpoints, topic, partition, :latest)
+      end_offset
+    end)
   end
 end
