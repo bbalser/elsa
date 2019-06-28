@@ -72,17 +72,8 @@ defmodule Elsa.Fetch do
   defp fetch_partition_stream(endpoints, topic, partition, opts) do
     Stream.resource(
       fn ->
-        start_offset =
-          Keyword.get_lazy(opts, :start_offset, fn ->
-            {:ok, earliest} = :brod.resolve_offset(endpoints, topic, partition, :earliest)
-            earliest
-          end)
-
-        end_offset =
-          Keyword.get_lazy(opts, :end_offset, fn ->
-            {:ok, latest} = :brod.resolve_offset(endpoints, topic, partition, :latest)
-            latest
-          end)
+        start_offset = retrieve_offset(opts, :start_offset, endpoints, topic, partition)
+        end_offset = retrieve_offset(opts, :end_offset, endpoints, topic, partition)
 
         {start_offset, end_offset}
       end,
@@ -112,5 +103,19 @@ defmodule Elsa.Fetch do
     normalized_search = String.downcase(search)
 
     String.contains?(normalized_term, normalized_search)
+  end
+
+  defp retrieve_offset(opts, :start_offset, endpoints, topic, partition) do
+    Keyword.get_lazy(opts, :start_offset, fn ->
+      {:ok, start_offset} = :brod.resolve_offset(endpoints, topic, partition, :earliest)
+      start_offset
+    end)
+  end
+
+  defp retrieve_offset(opts, :end_offset, endpoints, topic, partition) do
+    Keyword.get_lazy(opts, :end_offset, fn ->
+      {:ok, end_offset} = :brod.resolve_offset(endpoints, topic, partition, :latest)
+      end_offset
+    end)
   end
 end
