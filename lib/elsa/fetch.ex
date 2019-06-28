@@ -60,12 +60,11 @@ defmodule Elsa.Fetch do
   are respected for restricting the search scope.
   """
   @spec search(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
-  def search(endpoints, topic, search_term, opts \\ []) do
-    search_by = if Keyword.get(opts, :search_by_key), do: :key, else: :value
+  def search(endpoints, topic, search_function, opts \\ []) do
     all_messages = fetch_stream(endpoints, topic, opts)
 
     Stream.filter(all_messages, fn message ->
-      search_by(message, search_term, search_by)
+      search_function.(message)
     end)
   end
 
@@ -93,17 +92,6 @@ defmodule Elsa.Fetch do
   end
 
   defp unwrap_messages({_, offset, key, value, _, time, _}, partition), do: {partition, offset, key, value, time}
-
-  defp search_by({_, _, _, value, _}, search_term, :value), do: search_term(value, search_term)
-
-  defp search_by({_, _, key, _, _}, search_term, :key), do: search_term(key, search_term)
-
-  defp search_term(term, search) do
-    normalized_term = String.downcase(term)
-    normalized_search = String.downcase(search)
-
-    String.contains?(normalized_term, normalized_search)
-  end
 
   defp retrieve_offset(opts, :start_offset, endpoints, topic, partition) do
     Keyword.get_lazy(opts, :start_offset, fn ->

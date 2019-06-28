@@ -69,28 +69,34 @@ defmodule Elsa.FetchTest do
   end
 
   describe "search/4" do
-    test "finds specified message by value" do
-      message = Elsa.Fetch.search(@endpoints, "fetch-tests", "val19")
+    test "finds specified message by value search function" do
+      message =
+        Elsa.Fetch.search(@endpoints, "fetch-tests", fn message -> message |> elem(3) |> String.contains?("val19") end)
+
       result = Enum.map(message, fn {_, _, key, value, _} -> {key, value} end)
 
       assert [{"key19", "val19"}] == result
     end
 
-    test "finds specified message by key" do
-      messages = Elsa.Fetch.search(@endpoints, "fetch-tests", "key2", search_by_key: true)
+    test "finds specified message by multi-condition search" do
+      messages =
+        Elsa.Fetch.search(@endpoints, "fetch-tests", fn {partition, _, key, _, _} ->
+          partition == 2 && String.contains?(key, "3")
+        end)
+
       result = Enum.map(messages, fn {_, _, key, value, _} -> {key, value} end)
 
-      expected = [{"key2", "val2"} | Enum.map(20..29, fn num -> {"key#{num}", "val#{num}"} end)]
-
-      for message <- result, do: assert(message in expected)
+      assert [{"key23", "val23"}, {"key30", "val30"}] == result
     end
 
     test "returns empty list when no match is found" do
-      value_result = Elsa.Fetch.search(@endpoints, "fetch-tests", "foo") |> Enum.to_list()
-      key_result = Elsa.Fetch.search(@endpoints, "fetch-tests", "bar", search_by_key: true) |> Enum.to_list()
+      result =
+        Elsa.Fetch.search(@endpoints, "fetch-tests", fn {_, _, key, val, _} ->
+          String.contains?(key, "foo") || String.contains?(val, "foo")
+        end)
+        |> Enum.to_list()
 
-      assert value_result == []
-      assert key_result == []
+      assert result == []
     end
   end
 
