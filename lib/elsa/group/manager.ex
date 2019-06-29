@@ -71,6 +71,8 @@ defmodule Elsa.Group.Manager do
   end
 
   def init(opts) do
+    Process.flag(:trap_exit, true)
+
     state = %State{
       brokers: Keyword.fetch!(opts, :brokers),
       group: Keyword.fetch!(opts, :group),
@@ -83,12 +85,12 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
-    {:ok, client_pid} = Elsa.Util.start_client(state.brokers, state.name)
-
-    {:ok, %{state | client_pid: client_pid}, {:continue, :start_coordinator}}
+    {:ok, state, {:continue, :start_coordinator}}
   end
 
   def handle_continue(:start_coordinator, state) do
+    {:ok, client_pid} = Elsa.Util.start_client(state.brokers, state.name)
+
     {:ok, group_coordinator_pid} =
       :brod_group_coordinator.start_link(state.name, state.group, state.topics, state.config, __MODULE__, self())
 
@@ -98,7 +100,10 @@ defmodule Elsa.Group.Manager do
 
     Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)
 
-    {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
+    {:noreply, %{state | client_pid: client_pid, group_coordinator_pid: group_coordinator_pid}}
+  catch
+    :exit, reason ->
+      wait_and_stop(reason, state)
   end
 
   def handle_cast({:process_assignments, generation_id, assignments}, state) do
@@ -134,5 +139,14 @@ defmodule Elsa.Group.Manager do
     new_workers = WorkerManager.restart_worker(state.workers, ref, state)
 
     {:noreply, %{state | workers: new_workers}}
+  end
+
+  def handle_info({:EXIT, _from, reason}, state) do
+    wait_and_stop(reason, state)
+  end
+
+  defp wait_and_stop(reason, state) do
+    Process.sleep(2_000)
+    {:stop, reason, state}
   end
 end
