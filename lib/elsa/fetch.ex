@@ -52,20 +52,44 @@ defmodule Elsa.Fetch do
   end
 
   @doc """
-  Retrieves a stream of messages containing the supplied search string. Search
-  can be limited by an offset which is passed through to fetch_stream/3 call
-  retrieving the messages to search. By default, the search is applied against
-  the message values but can be optionally switched to search on the message key
-  by supplying the `search_by_key: true` option. All options for fetch_stream/3
-  are respected for restricting the search scope.
+  Retrieves a stream of messages for which the supplied function evaluates
+  to `true`. Search can be limited by an offset which is passed through to
+  the underlying fetch_stream/3 call retrieving the messages to search.
+  All options for fetch_stream/3 are respected.
   """
-  @spec search(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
+  @spec search(keyword(), String.t(), function(), keyword()) :: Enumerable.t()
   def search(endpoints, topic, search_function, opts \\ []) do
     all_messages = fetch_stream(endpoints, topic, opts)
 
     Stream.filter(all_messages, fn message ->
       search_function.(message)
     end)
+  end
+
+  @doc """
+  Retrieves a stream of messages where the keys contains the supplied search
+  string. Search can be further limited by an offset which is passed through to the
+  underlying fetch_stream/3 call retrieving the messages to search. All options
+  for fetch_stream/3 are respected.
+  """
+  @spec search_keys(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
+  def search_keys(endpoints, topic, search_term, opts \\ []) do
+    search_by_keys = fn {_, _, key, _, _} -> String.contains?(key, search_term) end
+
+    search(endpoints, topic, search_by_keys, opts)
+  end
+
+  @doc """
+  Retrieves a stream of messages where the values contains the supplied search
+  string. Search can be further limited by an offset which is passed through to the
+  underlying fetch_stream/3 call retrieving the messages to search. All options
+  for fetch_stream/3 are respected.
+  """
+  @spec search_values(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
+  def search_values(endpoints, topic, search_term, opts \\ []) do
+    search_by_values = fn {_, _, _, value, _} -> String.contains?(value, search_term) end
+
+    search(endpoints, topic, search_by_values, opts)
   end
 
   defp fetch_partition_stream(endpoints, topic, partition, opts) do

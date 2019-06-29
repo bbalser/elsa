@@ -69,16 +69,20 @@ defmodule Elsa.FetchTest do
   end
 
   describe "search/4" do
-    test "finds specified message by value search function" do
-      message =
-        Elsa.Fetch.search(@endpoints, "fetch-tests", fn message -> message |> elem(3) |> String.contains?("val19") end)
+    test "finds specified message by value or key" do
+      key_search = Elsa.Fetch.search_keys(@endpoints, "fetch-tests", "key2")
+      key_result = Enum.map(key_search, fn {_, _, key, value, _} -> {key, value} end) |> Enum.sort()
+      value_search = Elsa.Fetch.search_values(@endpoints, "fetch-tests", "val19")
+      value_result = Enum.map(value_search, fn {_, _, key, value, _} -> {key, value} end)
 
-      result = Enum.map(message, fn {_, _, key, value, _} -> {key, value} end)
+      expected_by_key = [{"key2", "val2"} | Enum.map(20..29, fn num -> {"key#{num}", "val#{num}"} end)]
+      expected_by_value = [{"key19", "val19"}]
 
-      assert [{"key19", "val19"}] == result
+      assert expected_by_key == key_result
+      assert expected_by_value == value_result
     end
 
-    test "finds specified message by multi-condition search" do
+    test "finds specified message by user-defined function" do
       messages =
         Elsa.Fetch.search(@endpoints, "fetch-tests", fn {partition, _, key, _, _} ->
           partition == 2 && String.contains?(key, "3")
