@@ -84,10 +84,19 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_info({_consumer_pid, kafka_message_set(topic: topic, partition: partition, messages: messages)}, state) do
-    {:ack, new_handler_state} = send_messages_to_handler(topic, partition, messages, state)
-    offset = ack_messages(topic, partition, messages, state)
+    case send_messages_to_handler(topic, partition, messages, state) do
+      {:ack, new_handler_state} ->
+        offset = messages |> List.last() |> kafka_message(:offset)
+        ack_messages(topic, partition, offset, state)
+        {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
 
-    {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
+      {:ack, offset, new_handler_state} ->
+        ack_messages(topic, partition, offset, state)
+        {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
+
+      {:no_ack, new_handler_state} ->
+        {:noreply, %{state | handler_state: new_handler_state}}
+    end
   end
 
   def handle_call(:unsubscribe, _from, state) do
@@ -98,26 +107,24 @@ defmodule Elsa.Group.Worker do
 
   defp send_messages_to_handler(topic, partition, messages, state) do
     messages
-    |> Enum.map(&transform_message(topic, partition, &1))
+    |> Enum.map(&transform_message(topic, partition, state.generation_id, &1))
     |> state.handler.handle_messages(state.handler_state)
   end
 
-  defp ack_messages(topic, partition, messages, state) do
-    offset = messages |> List.last() |> kafka_message(:offset)
-
+  defp ack_messages(topic, partition, offset, state) do
     Elsa.Group.Manager.ack(state.name, topic, partition, state.generation_id, offset)
-    :ok = :brod.consume_ack(state.name, topic, partition, offset)
 
     offset
   end
 
-  defp transform_message(topic, partition, kafka_message(offset: offset, key: key, value: value)) do
+  defp transform_message(topic, partition, generation_id, kafka_message(offset: offset, key: key, value: value)) do
     %{
       topic: topic,
       partition: partition,
       offset: offset,
       key: key,
-      value: value
+      value: value,
+      generation_id: generation_id
     }
   end
 

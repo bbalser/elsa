@@ -41,8 +41,9 @@ defmodule Elsa.Group.ConsumerTest do
     send_messages(["message2"])
 
     assert_async 20, 500, fn ->
-      assert [%{topic: "elsa-topic", partition: 0, key: "", value: "message2"}] ==
-               Agent.get(:test_message_store, fn s -> s end)
+      messages = Agent.get(:test_message_store, fn s -> s end)
+      assert 1 == length(messages)
+      assert match?(%{topic: "elsa-topic", partition: 0, key: "", value: "message2"}, List.first(messages))
     end
 
     Supervisor.stop(pid)
