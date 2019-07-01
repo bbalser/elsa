@@ -28,7 +28,7 @@ defmodule Elsa.MixProject do
       {:brod, "~> 3.7"},
       {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
       {:divo_kafka, "~> 0.1.0", only: [:dev, :test, :integration]},
-      {:placebo, "~> 1.2", only: [:dev, :test]},
+      {:placebo, "~> 1.2.2", only: [:dev, :test]},
       {:checkov, "~> 0.4.0", only: [:test, :integration]},
       {:ex_doc, "~> 0.20.2", only: [:dev]},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
