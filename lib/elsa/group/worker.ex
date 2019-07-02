@@ -65,6 +65,11 @@ defmodule Elsa.Group.Worker do
       config: Keyword.fetch!(init_args, :config)
     }
 
+    Process.put(:elsa_name, state.name)
+    Process.put(:elsa_topic, state.topic)
+    Process.put(:elsa_partition, state.partition)
+    Process.put(:elsa_generation_id, state.generation_id)
+
     Registry.register(registry(state.name), :"worker_#{state.topic}_#{state.partition}", nil)
 
     {:ok, handler_state} = state.handler.init(state.handler_init_args)
