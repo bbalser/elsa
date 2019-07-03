@@ -63,6 +63,14 @@ defmodule Elsa.Group.Manager do
   end
 
   @doc """
+  Trigger acknowldgement of processed messages back to the cluster.
+  """
+  @spec ack(String.t(), %{topic: String.t(), partition: integer(), generation_id: integer(), offset: integer()}) :: :ok
+  def ack(name, %{topic: topic, partition: partition, generation_id: generation_id, offset: offset}) do
+    ack(name, topic, partition, generation_id, offset)
+  end
+
+  @doc """
   Start the group manager process and register a name with the process registry.
   """
   def start_link(opts) do
@@ -126,6 +134,7 @@ defmodule Elsa.Group.Manager do
     case assignment_generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
+        :ok = :brod.consume_ack(state.name, topic, partition, offset)
         new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
         {:noreply, %{state | workers: new_workers}}
 
