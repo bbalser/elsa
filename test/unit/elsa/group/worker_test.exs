@@ -1,7 +1,8 @@
 defmodule Elsa.Group.WorkerTest do
   use ExUnit.Case
   use Placebo
-  import Elsa.Group.Worker, only: [kafka_message_set: 1, kafka_message: 1]
+  import Elsa.Group.Worker, only: [kafka_message_set: 1]
+  import Elsa.Message, only: [kafka_message: 1]
 
   describe "handle_info/2" do
     setup do

@@ -5,7 +5,7 @@ defmodule Elsa.ProducerTest do
 
   alias Elsa.Producer
   alias Elsa.Producer.Manager
-  require Elsa
+  require Elsa.Message
 
   @brokers [{'localhost', 9092}]
 
@@ -103,6 +103,6 @@ defmodule Elsa.ProducerTest do
   defp retrieve_results(endpoints, topic, partition, offset) do
     {:ok, {_count, messages}} = :brod.fetch(endpoints, topic, partition, offset)
 
-    Enum.map(messages, fn msg -> {Elsa.kafka_message(msg, :key), Elsa.kafka_message(msg, :value)} end)
+    Enum.map(messages, fn msg -> {Elsa.Message.kafka_message(msg, :key), Elsa.Message.kafka_message(msg, :value)} end)
   end
 end

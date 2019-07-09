@@ -13,7 +13,6 @@ defmodule Elsa.Group.Worker do
   import Record, only: [defrecord: 2, extract: 2]
 
   defrecord :kafka_message_set, extract(:kafka_message_set, from_lib: "brod/include/brod.hrl")
-  defrecord :kafka_message, extract(:kafka_message, from_lib: "kafka_protocol/include/kpro_public.hrl")
 
   @subscribe_delay 200
   @subscribe_retries 20
@@ -89,9 +88,11 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_info({_consumer_pid, kafka_message_set(topic: topic, partition: partition, messages: messages)}, state) do
-    case send_messages_to_handler(topic, partition, messages, state) do
+    transformed_messages = transform_messages(topic, partition, messages, state)
+
+    case send_messages_to_handler(transformed_messages, state) do
       {:ack, new_handler_state} ->
-        offset = messages |> List.last() |> kafka_message(:offset)
+        offset = transformed_messages |> List.last() |> Map.get(:offset)
         ack_messages(topic, partition, offset, state)
         {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
 
@@ -110,27 +111,18 @@ defmodule Elsa.Group.Worker do
     {:stop, :normal, result, state}
   end
 
-  defp send_messages_to_handler(topic, partition, messages, state) do
-    messages
-    |> Enum.map(&transform_message(topic, partition, state.generation_id, &1))
-    |> state.handler.handle_messages(state.handler_state)
+  defp transform_messages(topic, partition, messages, state) do
+    Enum.map(messages, &Elsa.Message.new(&1, topic: topic, partition: partition, generation_id: state.generation_id))
+  end
+
+  defp send_messages_to_handler(messages, state) do
+    state.handler.handle_messages(messages, state.handler_state)
   end
 
   defp ack_messages(topic, partition, offset, state) do
     Elsa.Group.Manager.ack(state.name, topic, partition, state.generation_id, offset)
 
     offset
-  end
-
-  defp transform_message(topic, partition, generation_id, kafka_message(offset: offset, key: key, value: value)) do
-    %{
-      topic: topic,
-      partition: partition,
-      offset: offset,
-      key: key,
-      value: value,
-      generation_id: generation_id
-    }
   end
 
   defp subscribe(state, retries \\ @subscribe_retries)

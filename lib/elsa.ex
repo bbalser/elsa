@@ -6,10 +6,6 @@ defmodule Elsa do
   produce_sync of message(s) to a topic.
   """
 
-  import Record
-
-  defrecord :kafka_message, extract(:kafka_message, from_lib: "kafka_protocol/include/kpro_public.hrl")
-
   defdelegate list_topics(endpoints), to: Elsa.Topic, as: :list
 
   defdelegate topic?(endpoints, topic), to: Elsa.Topic, as: :exists?
@@ -34,6 +30,32 @@ defmodule Elsa do
   """
   @spec default_client() :: atom()
   def default_client(), do: :elsa_default_client
+
+  defmodule Message do
+    import Record, only: [defrecord: 2, extract: 2]
+
+    defrecord :kafka_message, extract(:kafka_message, from_lib: "kafka_protocol/include/kpro_public.hrl")
+
+    defstruct [
+      :topic,
+      :partition,
+      :offset,
+      :key,
+      :value,
+      :generation_id
+    ]
+
+    def new(kafka_message(offset: offset, key: key, value: value), attributes) do
+      %Message{
+        topic: Keyword.fetch!(attributes, :topic),
+        partition: Keyword.fetch!(attributes, :partition),
+        offset: offset,
+        key: key,
+        value: value,
+        generation_id: Keyword.get(attributes, :generation_id)
+      }
+    end
+  end
 
   defmodule ConnectError do
     defexception [:message]
