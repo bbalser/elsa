@@ -60,9 +60,9 @@ defmodule ElsaTest do
       {:ok, {_count, messages}} = :brod.fetch([{'localhost', 9092}], "topic1", 0, 0)
 
       parsed_messages =
-        Enum.map(messages, fn msg -> {Elsa.kafka_message(msg, :key), Elsa.kafka_message(msg, :value)} end)
+        Enum.map(messages, fn msg -> Elsa.Message.new(msg, topic: "topic1", partition: 0) end)
 
-      assert [{"key", "value1"}, {"key2", "value2"}] == parsed_messages
+      assert match?([%Elsa.Message{key: "key", value: "value1"}, %Elsa.Message{key: "key2", value: "value2"}], parsed_messages)
     end
   end
 end

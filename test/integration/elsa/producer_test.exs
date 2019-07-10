@@ -50,7 +50,7 @@ defmodule Elsa.ProducerTest do
           [{"key1", "value1"}, {"key2", "value2"}],
           :same,
           [name: :elsa_client2],
-          [client: :elsa_client2, partition: 1]
+          [name: :elsa_client2, partition: 1]
         ],
         ["dt-producer-topic3", 1, "this is the message", [{"", "this is the message"}], [], []],
         ["dt-producer-topic4", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [], []],
@@ -78,7 +78,7 @@ defmodule Elsa.ProducerTest do
       Manager.start_producer(@brokers, "random-topic", name: :elsa_client3)
 
       Producer.produce_sync("random-topic", [{"key1", "value1"}, {"key2", "value2"}],
-        client: :elsa_client3,
+        name: :elsa_client3,
         partitioner: :random
       )
 
@@ -92,7 +92,7 @@ defmodule Elsa.ProducerTest do
 
       Manager.start_producer(@brokers, "hashed-topic", name: :elsa_client4)
 
-      Producer.produce_sync("hashed-topic", {"key", "value"}, client: :elsa_client4, partitioner: :md5)
+      Producer.produce_sync("hashed-topic", {"key", "value"}, name: :elsa_client4, partitioner: :md5)
 
       parsed_messages = retrieve_results(@brokers, "hashed-topic", 1, 0)
 
