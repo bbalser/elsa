@@ -17,8 +17,8 @@ defmodule Elsa.Fetch do
 
     case :brod.fetch(endpoints, topic, partition, offset) do
       {:ok, {partition_offset, messages}} ->
-        unwrapped_messages = Enum.map(messages, &unwrap_messages(&1, partition))
-        {:ok, partition_offset, unwrapped_messages}
+        transformed_messages = Enum.map(messages, &Elsa.Message.new(&1, topic: topic, partition: partition))
+        {:ok, partition_offset, transformed_messages}
 
       {:error, reason} ->
         {:error, reason}
@@ -74,7 +74,7 @@ defmodule Elsa.Fetch do
   """
   @spec search_keys(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
   def search_keys(endpoints, topic, search_term, opts \\ []) do
-    search_by_keys = fn {_, _, key, _, _} -> String.contains?(key, search_term) end
+    search_by_keys = fn %Elsa.Message{key: key} -> String.contains?(key, search_term) end
 
     search(endpoints, topic, search_by_keys, opts)
   end
@@ -87,7 +87,7 @@ defmodule Elsa.Fetch do
   """
   @spec search_values(keyword(), String.t(), String.t(), keyword()) :: Enumerable.t()
   def search_values(endpoints, topic, search_term, opts \\ []) do
-    search_by_values = fn {_, _, _, value, _} -> String.contains?(value, search_term) end
+    search_by_values = fn %Elsa.Message{value: value} -> String.contains?(value, search_term) end
 
     search(endpoints, topic, search_by_values, opts)
   end
@@ -114,8 +114,6 @@ defmodule Elsa.Fetch do
       fn offset -> offset end
     )
   end
-
-  defp unwrap_messages({_, offset, key, value, _, time, _}, partition), do: {partition, offset, key, value, time}
 
   defp retrieve_offset(opts, :start_offset, endpoints, topic, partition) do
     Keyword.get_lazy(opts, :start_offset, fn ->
