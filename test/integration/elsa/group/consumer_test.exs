@@ -10,7 +10,7 @@ defmodule Elsa.Group.ConsumerTest do
     {:ok, pid} =
       Elsa.Group.Supervisor.start_link(
         name: :name1,
-        brokers: @brokers,
+        endpoints: @brokers,
         group: "group1",
         topics: ["elsa-topic"],
         handler: Testing.ExampleMessageHandlerWithState,

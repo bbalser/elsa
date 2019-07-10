@@ -12,6 +12,64 @@ defmodule Elsa.Group.Manager do
 
   @behaviour :brod_group_member
 
+  @type hostname :: atom() | String.t()
+  @type portnum :: pos_integer()
+
+  @type topic :: String.t()
+
+  @typedoc "Module that implements the Elsa.Consumer.MessageHandler behaviour"
+  @type handler :: module()
+
+  @typedoc "endpoints to connect to kafka brokers"
+  @type endpoints :: [{hostname(), portnum()}]
+
+  @typedoc "Minimum bytes to fetch in batch of messages: default = 0"
+  @type min_bytes :: non_neg_integer()
+
+  @typedoc "Maximum bytes to fetch in batch of messages: default = 1MB"
+  @type max_bytes :: non_neg_integer()
+
+  @typedoc "Max number of milliseconds to wait to wait for broker to collect min_bytes of messages: default = 10_000 ms"
+  @type max_wait_time :: non_neg_integer()
+
+  @typedoc "Allow consumer process to sleep this amount of ms if kafka replied with 'empty' messages: default = 1_000 ms"
+  @type sleep_timeout :: non_neg_integer()
+
+  @typedoc "The windows size (number of messages) allowed to fetch-ahead: default = 10"
+  @type prefetch_count :: non_neg_integer()
+
+  @typedoc "The total number of bytes allowed to fetch-ahead: default = 100KB"
+  @type prefetch_bytes :: non_neg_integer()
+
+  @typedoc "The offset from wthich to begin fetch requests: default = latest"
+  @type begin_offset :: non_neg_integer()
+
+  @typedoc "How to reset begin_offset if OffsetOutOfRange exception is received"
+  @type offset_reset_policy :: :reset_to_earliest | :reset_to_latest
+
+  @typedoc "Values to configure the consumer, all are optional"
+  @type consumer_config :: [
+          min_bytes: min_bytes(),
+          max_bytes: max_bytes(),
+          max_wait_time: max_wait_time(),
+          sleep_timeout: sleep_timeout(),
+          prefetch_count: prefetch_count(),
+          prefetch_bytes: prefetch_bytes(),
+          begin_offset: begin_offset(),
+          offset_reset_policy: offset_reset_policy()
+        ]
+
+  @typedoc "keyword list of config values to start elsa consumer"
+  @type start_config :: [
+          name: atom(),
+          endpoints: endpoints(),
+          group: String.t(),
+          topics: [topic()],
+          handler: handler(),
+          handler_init_args: term(),
+          config: consumer_config()
+        ]
+
   defmodule State do
     @moduledoc """
     The running state of the consumer group manager process.
@@ -73,6 +131,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Start the group manager process and register a name with the process registry.
   """
+  @spec start_link(start_config()) :: GenServer.on_start()
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     GenServer.start_link(__MODULE__, opts, name: {:via, Registry, {registry(name), __MODULE__}})
@@ -82,7 +141,7 @@ defmodule Elsa.Group.Manager do
     Process.flag(:trap_exit, true)
 
     state = %State{
-      brokers: Keyword.fetch!(opts, :brokers),
+      brokers: Keyword.get_lazy(opts, :brokers, fn -> Keyword.fetch!(opts, :endpoints) end),
       group: Keyword.fetch!(opts, :group),
       name: Keyword.fetch!(opts, :name),
       topics: Keyword.fetch!(opts, :topics),
