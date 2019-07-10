@@ -42,13 +42,13 @@ defmodule Elsa do
 
     @type kafka_message :: record(:kafka_message, key: term(), value: term(), offset: integer(), ts: integer())
     @type elsa_message :: %Elsa.Message{
-      topic: String.t(),
-      partition: integer(),
-      offset: integer(),
-      key: term(),
-      value: term(),
-      generation_id: integer() | nil
-    }
+            topic: String.t(),
+            partition: integer(),
+            offset: integer(),
+            key: term(),
+            value: term(),
+            generation_id: integer() | nil
+          }
 
     defstruct [
       :topic,
