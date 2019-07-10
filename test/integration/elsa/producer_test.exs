@@ -100,6 +100,16 @@ defmodule Elsa.ProducerTest do
     end
   end
 
+  describe "no producer started" do
+    test "will return {:error, :client_down when no client has been started}" do
+      Elsa.create_topic(@brokers, "bad-topic")
+
+      messages = [{"key", "value"}]
+
+      assert {:error, :client_down} == Elsa.produce_sync("bad-topic", messages)
+    end
+  end
+
   defp retrieve_results(endpoints, topic, partition, offset) do
     {:ok, {_count, messages}} = :brod.fetch(endpoints, topic, partition, offset)
 

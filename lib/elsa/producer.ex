@@ -27,63 +27,81 @@ defmodule Elsa.Producer do
   def produce_sync(topic, messages, opts \\ [])
 
   def produce_sync(topic, messages, opts) when is_list(messages) do
-    name = get_client(opts)
-
-    case Keyword.get(opts, :partition) do
-      nil ->
-        messages
-        |> Enum.map(&transform_message(&1, name, topic, opts))
-        |> Enum.group_by(fn {partition, _} -> partition end, fn {_, message} -> message end)
-        |> Enum.each(fn {partition, messages} -> do_produce_sync(name, topic, partition, messages) end)
-
-      partition ->
-        do_produce_sync(name, topic, partition, messages)
-    end
-  end
-
-  def produce_sync(topic, {key, value}, opts) do
-    name = get_client(opts)
-    partition = get_partition(name, topic, key, opts)
-
-    do_produce_sync(name, topic, partition, [{key, value}])
+    transformed_messages = Enum.map(messages, &transform_message/1)
+    do_produce_sync(topic, transformed_messages, opts)
   end
 
   def produce_sync(topic, message, opts) do
-    name = get_client(opts)
-    partition = get_partition(name, topic, "", opts)
-
-    do_produce_sync(name, topic, partition, [{"", message}])
+    do_produce_sync(topic, [transform_message(message)], opts)
   end
 
-  defp transform_message({key, value}, name, topic, opts) do
-    {get_partition(name, topic, key, opts), {key, value}}
+  defp transform_message({key, value}), do: {key, value}
+  defp transform_message(message), do: {"", message}
+
+  defp do_produce_sync(topic, messages, opts) do
+    do_with_valid_client(opts, fn client ->
+      partitioner = get_partitioner(client, topic, opts)
+      message_chunks = create_message_chunks(partitioner, messages)
+
+      case produce_sync_while_successful(client, topic, message_chunks) do
+        {:ok, _} -> :ok
+        {:error, reason, chunks_sent} -> failure_message(message_chunks, reason, chunks_sent)
+      end
+    end)
   end
 
-  defp transform_message(message, name, topic, opts) do
-    {get_partition(name, topic, "", opts), {"", message}}
+  defp do_with_valid_client(opts, function) when is_function(function, 1) do
+    case get_valid_client(opts) do
+      {:ok, client} -> function.(client)
+      error -> error
+    end
   end
 
-  defp do_produce_sync(name, topic, partition, messages) do
+  defp produce_sync_while_successful(client, topic, message_chunks) do
+    Enum.reduce_while(message_chunks, {:ok, 0}, fn {partition, chunk}, {:ok, chunks_sent} ->
+      case :brod.produce_sync(client, topic, partition, "", chunk) do
+        :ok -> {:cont, {:ok, chunks_sent + 1}}
+        {:error, reason} -> {:halt, {:error, reason, chunks_sent}}
+      end
+    end)
+  end
+
+  defp create_message_chunks(partitioner, messages) do
     messages
-    |> Enum.map(&wrap_with_key/1)
-    |> Util.chunk_by_byte_size()
-    |> Enum.each(fn chunk -> :brod.produce_sync(name, topic, partition, "", chunk) end)
+    |> Enum.group_by(partitioner)
+    |> Enum.map(fn {partition, messages} -> {partition, Util.chunk_by_byte_size(messages)} end)
+    |> Enum.flat_map(fn {partition, chunks} -> Enum.map(chunks, fn chunk -> {partition, chunk} end) end)
   end
 
-  defp wrap_with_key({_key, _value} = message), do: message
-  defp wrap_with_key(message), do: {"", message}
+  defp failure_message(message_chunks, reason, chunks_sent) do
+    messages_sent = Enum.take(message_chunks, chunks_sent) |> Enum.flat_map(fn {_partition, chunk} -> chunk end)
+    reason_string = "#{length(messages_sent)} messages succeeded before elsa producer failed midway through due to #{inspect(reason)}"
+    failed_messages = Enum.drop(message_chunks, chunks_sent) |> Enum.flat_map(fn {_partition, chunk} -> chunk end)
+    {:error, reason_string, failed_messages}
+  end
 
   defp get_client(opts) do
-    Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
+    Keyword.get_lazy(opts, :client, fn -> Keyword.get_lazy(opts, :name, &Elsa.default_client/0) end)
   end
 
-  defp get_partition(name, topic, key, opts) do
-    Keyword.get_lazy(opts, :partition, fn ->
-      {:ok, partition_num} = :brod.get_partitions_count(name, topic)
+  defp get_valid_client(opts) do
+    client = get_client(opts)
 
-      opts
-      |> Keyword.get(:partitioner, :default)
-      |> Elsa.Producer.Partitioner.partition(partition_num, key)
-    end)
+    case Util.client?(client) do
+      true -> {:ok, client}
+      false -> {:error, :client_down}
+    end
+  end
+
+  defp get_partitioner(client, topic, opts) do
+    case Keyword.get(opts, :partition) do
+      nil ->
+        {:ok, partition_num} = :brod.get_partitions_count(client, topic)
+        partitioner = Keyword.get(opts, :partitioner, :default)
+        fn {key, _value} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end
+
+      partition ->
+        fn _msg -> partition end
+    end
   end
 end

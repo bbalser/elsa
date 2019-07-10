@@ -39,6 +39,21 @@ defmodule Elsa.Util do
   end
 
   @doc """
+  Determines if client pid is alive
+  """
+  @spec client?(pid() | atom()) :: boolean()
+  def client?(pid) when is_pid(pid) do
+    Process.alive?(pid)
+  end
+
+  def client?(client) when is_atom(client) do
+    case Process.whereis(client) do
+      pid when is_pid(pid) -> client?(pid)
+      nil -> false
+    end
+  end
+
+  @doc """
   Create a named client connection process for managing interactions
   with the connected cluster.
   """
