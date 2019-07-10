@@ -76,7 +76,7 @@ defmodule Elsa.UtilTest do
       chunks =
         ?a..?z
         |> Enum.map(&List.to_string([&1]))
-        |> Elsa.Util.chunk_by_byte_size(10)
+        |> Elsa.Util.chunk_by_byte_size(10 * 10)
 
       assert length(chunks) == 3
       assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&List.to_string([&1]))
@@ -88,7 +88,7 @@ defmodule Elsa.UtilTest do
       chunks =
         ?a..?z
         |> Enum.map(&to_tuple/1)
-        |> Elsa.Util.chunk_by_byte_size(20)
+        |> Elsa.Util.chunk_by_byte_size(20 + 10 * 10)
 
       assert length(chunks) == 3
       assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&to_tuple/1)

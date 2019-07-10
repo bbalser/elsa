@@ -1,4 +1,6 @@
 defmodule Elsa.Producer do
+  require Logger
+
   @moduledoc """
   Defines functions to write messages to topics based on either a list of endpoints or a named client.
   """
@@ -59,6 +61,12 @@ defmodule Elsa.Producer do
 
   defp produce_sync_while_successful(client, topic, message_chunks) do
     Enum.reduce_while(message_chunks, {:ok, 0}, fn {partition, chunk}, {:ok, chunks_sent} ->
+      total_size = Enum.reduce(chunk, 0, fn {key, value}, acc -> acc + byte_size(key) + byte_size(value) end)
+
+      Logger.debug(fn ->
+        "#{__MODULE__} Sending #{length(chunk)} messages to #{topic}:#{partition} - Size : #{total_size}"
+      end)
+
       case :brod.produce_sync(client, topic, partition, "", chunk) do
         :ok -> {:cont, {:ok, chunks_sent + 1}}
         {:error, reason} -> {:halt, {:error, reason, chunks_sent}}
@@ -75,13 +83,16 @@ defmodule Elsa.Producer do
 
   defp failure_message(message_chunks, reason, chunks_sent) do
     messages_sent = Enum.take(message_chunks, chunks_sent) |> Enum.flat_map(fn {_partition, chunk} -> chunk end)
-    reason_string = "#{length(messages_sent)} messages succeeded before elsa producer failed midway through due to #{inspect(reason)}"
+
+    reason_string =
+      "#{length(messages_sent)} messages succeeded before elsa producer failed midway through due to #{inspect(reason)}"
+
     failed_messages = Enum.drop(message_chunks, chunks_sent) |> Enum.flat_map(fn {_partition, chunk} -> chunk end)
     {:error, reason_string, failed_messages}
   end
 
   defp get_client(opts) do
-    Keyword.get_lazy(opts, :client, fn -> Keyword.get_lazy(opts, :name, &Elsa.default_client/0) end)
+    Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
   end
 
   defp get_valid_client(opts) do
