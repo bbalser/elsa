@@ -17,9 +17,13 @@ install:
   - mix local.hex --force
   - mix deps.get
   - mix format --check-formatted
+  - mix dialyzer --halt-exit-status
 script:
   - mix test
   - mix test.integration
+cache:
+  directories:
+    - .plts
 deploy:
   skip_cleanup: true
   provider: script
