@@ -6,6 +6,7 @@ defmodule Elsa.Util do
   """
 
   @default_max_chunk_size 900_000
+  @timestamp_size_in_bytes 10
 
   @doc """
   Wrap establishing a connection to a cluster for performing an operation.
@@ -39,6 +40,21 @@ defmodule Elsa.Util do
   end
 
   @doc """
+  Determines if client pid is alive
+  """
+  @spec client?(pid() | atom()) :: boolean()
+  def client?(pid) when is_pid(pid) do
+    Process.alive?(pid)
+  end
+
+  def client?(client) when is_atom(client) do
+    case Process.whereis(client) do
+      pid when is_pid(pid) -> client?(pid)
+      nil -> false
+    end
+  end
+
+  @doc """
   Create a named client connection process for managing interactions
   with the connected cluster.
   """
@@ -66,9 +82,9 @@ defmodule Elsa.Util do
   the appropriately sized chunks, the internal function based on Kernel.byte_size/1 is used.
   """
   @spec chunk_by_byte_size(term(), integer(), fun()) :: [term()]
-  def chunk_by_byte_size(collection, chunk_byte_size \\ @default_max_chunk_size, function \\ &get_byte_size/1) do
+  def chunk_by_byte_size(collection, chunk_byte_size \\ @default_max_chunk_size, byte_size_function \\ &get_byte_size/1) do
     collection
-    |> Enum.chunk_while({0, []}, &chunk(&1, &2, chunk_byte_size, function), &after_chunk/1)
+    |> Enum.chunk_while({0, []}, &chunk(&1, &2, chunk_byte_size, byte_size_function), &after_chunk/1)
   end
 
   @doc """
@@ -107,8 +123,8 @@ defmodule Elsa.Util do
     end
   end
 
-  defp chunk(item, {current_size, current_batch}, chunk_byte_size, function) do
-    item_size = function.(item)
+  defp chunk(item, {current_size, current_batch}, chunk_byte_size, byte_size_function) do
+    item_size = byte_size_function.(item) + @timestamp_size_in_bytes
     new_total = current_size + item_size
 
     case new_total < chunk_byte_size do
