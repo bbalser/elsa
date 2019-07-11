@@ -32,7 +32,7 @@ defmodule Elsa.Util do
   Retrieve the api version of the desired operation supported by the
   connected cluster.
   """
-  @spec get_api_version(pid(), atom()) :: integer()
+  @spec get_api_version(pid(), atom()) :: non_neg_integer()
   def get_api_version(connection, api) do
     {:ok, api_versions} = :kpro.get_api_versions(connection)
     {_, version} = Map.get(api_versions, api)
