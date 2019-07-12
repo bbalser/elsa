@@ -17,7 +17,7 @@ install:
   - mix local.hex --force
   - mix deps.get
   - mix format --check-formatted
-  - mix dialyzer --halt-exit-status
+  - travis_wait mix dialyzer --halt-exit-status
 script:
   - mix test
   - mix test.integration
