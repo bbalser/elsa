@@ -90,13 +90,13 @@ defmodule Elsa.Group.Manager do
   end
 
   def get_committed_offsets(_pid, _topic) do
-    :ok
+    {:ok, []}
   end
 
   @doc """
   Trigger the assignment of workers to a given topic and partition
   """
-  @spec assignments_received(pid(), term(), integer(), [tuple()]) :: {:no_reply, struct()}
+  @spec assignments_received(pid(), term(), integer(), [tuple()]) :: :ok
   def assignments_received(pid, _group, generation_id, assignments) do
     GenServer.cast(pid, {:process_assignments, generation_id, assignments})
   end
@@ -105,7 +105,7 @@ defmodule Elsa.Group.Manager do
   Trigger deallocation of all workers from the consumer group and stop
   worker processes.
   """
-  @spec assignments_revoked(pid()) :: {:no_reply, struct()}
+  @spec assignments_revoked(pid()) :: :ok
   def assignments_revoked(pid) do
     Logger.error("Assignments revoked : #{inspect(pid)}")
     GenServer.cast(pid, :revoke_assignments)
@@ -114,7 +114,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: {:no_reply, struct()}
+  @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: :ok
   def ack(name, topic, partition, generation_id, offset) do
     group_manager = {:via, Registry, {registry(name), __MODULE__}}
     GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})

@@ -11,7 +11,8 @@ defmodule Elsa.MixProject do
       package: package(),
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      test_paths: test_paths(Mix.env())
+      test_paths: test_paths(Mix.env()),
+      dialyzer: [flags: [:no_fail_call, :no_return, :no_fun_app], plt_file: {:no_warn, ".plt/dialyzer.plt"}]
     ]
   end
 
@@ -31,7 +32,7 @@ defmodule Elsa.MixProject do
       {:placebo, "~> 1.2.2", only: [:dev, :test]},
       {:checkov, "~> 0.4.0", only: [:test, :integration]},
       {:ex_doc, "~> 0.20.2", only: [:dev]},
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+      {:dialyxir, "~> 1.0.0-rc.6", only: [:dev], runtime: false}
     ]
   end
 
