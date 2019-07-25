@@ -91,16 +91,21 @@ defmodule Elsa.Group.Worker do
     transformed_messages = transform_messages(topic, partition, messages, state)
 
     case send_messages_to_handler(transformed_messages, state) do
-      {:ack, new_handler_state} ->
+      {ack, new_handler_state} when ack in [:ack, :acknowledge] ->
         offset = transformed_messages |> List.last() |> Map.get(:offset)
         ack_messages(topic, partition, offset, state)
         {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
 
-      {:ack, offset, new_handler_state} ->
+      {ack, offset, new_handler_state} when ack in [:ack, :acknowledge] ->
         ack_messages(topic, partition, offset, state)
         {:noreply, %{state | offset: offset, handler_state: new_handler_state}}
 
-      {:no_ack, new_handler_state} ->
+      {no_ack, new_handler_state} when no_ack in [:no_ack, :noop] ->
+        {:noreply, %{state | handler_state: new_handler_state}}
+
+      {:continue, new_handler_state} ->
+        offset = transformed_messages |> List.last() |> Map.get(:offset)
+        :brod.consume_ack(state.name, topic, partition, offset)
         {:noreply, %{state | handler_state: new_handler_state}}
     end
   end
