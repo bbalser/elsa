@@ -5,8 +5,18 @@ defmodule Elsa.Consumer.MessageHandler do
   processes.
   """
   @callback init(term()) :: {:ok, term()}
-  @callback handle_messages(term(), term()) :: {:ack, term()} | {:ack, term(), term()} | {:no_ack, term()}
-  @callback handle_messages(term()) :: :ack | {:ack, term()} | :no_ack
+
+  @callback handle_messages(term(), term()) ::
+              {:acknowledge, term()}
+              | {:acknowledge, term(), term()}
+              | {:ack, term()}
+              | {:ack, term(), term()}
+              | {:no_ack, term()}
+              | {:noop, term()}
+              | {:continue, term()}
+
+  @callback handle_messages(term()) ::
+              :ack | :acknowledge | {:ack, term()} | {:acknowledge, term()} | :no_ack | :noop | :continue
 
   @doc """
   Defines the macro for implementing the message handler behaviour
@@ -26,8 +36,12 @@ defmodule Elsa.Consumer.MessageHandler do
       def handle_messages(messages, state) do
         case handle_messages(messages) do
           :ack -> {:ack, state}
+          :acknowledge -> {:acknowledge, state}
           {:ack, offset} -> {:ack, offset, state}
+          {:acknowledge, offset} -> {:acknowledge, offset, state}
           :no_ack -> {:no_ack, state}
+          :noop -> {:noop, state}
+          :continue -> {:continue, state}
         end
       end
 
