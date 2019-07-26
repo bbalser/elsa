@@ -18,20 +18,19 @@ defmodule Elsa.Producer.Supervisor do
     endpoints = Keyword.fetch!(init_opts, :endpoints)
     topic = Keyword.fetch!(init_opts, :topic)
 
-    client_name = client_name(name)
     num_partitions = Elsa.Util.partition_count(endpoints, topic)
 
     client =
       %{
-        id: client_name,
-        start: {Elsa.Util, :start_client, [endpoints, client_name]}
+        id: name,
+        start: {Elsa.Util, :start_client, [endpoints, name]}
       }
 
     partition_producers =
       Enum.map(0..(num_partitions - 1), fn partition ->
         %{
           id: :"elsa_producer_#{topic}_#{partition}",
-          start: {:brod_producer, :start_link, [client_name, topic, partition, []]}
+          start: {:brod_producer, :start_link, [name, topic, partition, []]}
         }
       end)
 
@@ -46,5 +45,4 @@ defmodule Elsa.Producer.Supervisor do
   end
 
   defp supervisor_name(name), do: :"elsa_producer_supervisor_#{name}"
-  defp client_name(name), do: :"elsa_producer_client_#{name}"
 end
