@@ -20,11 +20,10 @@ defmodule Elsa.Producer.Supervisor do
 
     num_partitions = Elsa.Util.partition_count(endpoints, topic)
 
-    client =
-      %{
-        id: name,
-        start: {Elsa.Util, :start_client, [endpoints, name]}
-      }
+    client = %{
+      id: name,
+      start: {Elsa.Util, :start_client, [endpoints, name]}
+    }
 
     partition_producers =
       Enum.map(0..(num_partitions - 1), fn partition ->

@@ -19,7 +19,6 @@ defmodule Elsa.ProducerTest do
       Process.exit(producer_sup, :shutdown)
 
       assert Enum.all?(children, fn child -> Process.alive?(child) == false end) == false
-
     end
   end
 
@@ -39,10 +38,28 @@ defmodule Elsa.ProducerTest do
       where [
         [:topic, :num_partitions, :messages, :expected_messages, :produce_opts],
         ["dt-producer-topic1", 1, [{"key1", "value1"}, {"key2", "value2"}], :same, [name: :"dt-producer-topic1"]],
-        ["dt-producer-topic2", 2, [{"key1", "value1"}, {"key2", "value2"}], :same, [name: :"dt-producer-topic2", partition: 1]],
+        [
+          "dt-producer-topic2",
+          2,
+          [{"key1", "value1"}, {"key2", "value2"}],
+          :same,
+          [name: :"dt-producer-topic2", partition: 1]
+        ],
         ["dt-producer-topic3", 1, "this is the message", [{"", "this is the message"}], [name: :"dt-producer-topic3"]],
-        ["dt-producer-topic4", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [name: :"dt-producer-topic4"]],
-        ["dt-producer-topic5", 1, ["message1", "message2"], [{"", "message1"}, {"", "message2"}], [name: :"dt-producer-topic5", partition: 0]]
+        [
+          "dt-producer-topic4",
+          1,
+          ["message1", "message2"],
+          [{"", "message1"}, {"", "message2"}],
+          [name: :"dt-producer-topic4"]
+        ],
+        [
+          "dt-producer-topic5",
+          1,
+          ["message1", "message2"],
+          [{"", "message1"}, {"", "message2"}],
+          [name: :"dt-producer-topic5", partition: 0]
+        ]
       ]
     end
   end
@@ -51,7 +68,18 @@ defmodule Elsa.ProducerTest do
     test "produces to the specified topic with no prior broker" do
       Elsa.create_topic(@brokers, "producer-topic3")
 
-      Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", "value2"}], partition: 0)
+      Patiently.wait_for!(
+        fn ->
+          case Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", "value2"}], partition: 0) do
+            :ok ->
+              true
+            _ ->
+              false
+          end
+        end,
+        dwell: 100,
+        max_retries: 5
+      )
 
       parsed_messages = retrieve_results(@brokers, "producer-topic3", 0, 0)
 
@@ -101,6 +129,7 @@ defmodule Elsa.ProducerTest do
         case Producer.produce_sync(topic, messages, opts) do
           :ok ->
             true
+
           _ ->
             false
         end

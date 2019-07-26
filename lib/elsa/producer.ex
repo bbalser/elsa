@@ -17,7 +17,7 @@ defmodule Elsa.Producer do
 
   alias Elsa.Util
 
-  @type hostname :: atom() :: String.t()
+  @type hostname :: atom() | String.t()
   @type portnum :: pos_integer()
   @type endpoints :: [{hostname(), portnum()}]
   @type topic :: String.t()
@@ -31,8 +31,15 @@ defmodule Elsa.Producer do
   def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
     name = get_client(opts)
 
-    Elsa.Producer.Manager.start_producer(endpoints, topic, name: name)
-    produce_sync(topic, messages, Keyword.put(opts, :name, name))
+    {:ok, producer_supervisor} = Elsa.Producer.Supervisor.start_link(name: name, endpoints: endpoints, topic: topic)
+
+    case produce_sync(topic, messages, Keyword.put(opts, :name, name)) do
+      :ok ->
+        Process.exit(producer_supervisor, :shutdown)
+        :ok
+      error ->
+        {:error, inspect(error)}
+    end
   end
 
   @doc """
