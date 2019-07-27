@@ -3,29 +3,52 @@ defmodule Elsa.Producer do
 
   @moduledoc """
   Defines functions to write messages to topics based on either a list of endpoints or a named client.
+  All produce functions support the following options:
+    * An existing named client process to handle the request can be specified by the keyword option `name:`.
+    * If no partition is supplied, the first (zero) partition is chosen.
+    * Value may be a single message or a list of messages.
+    * If a list of messages is supplied as the value, the key is defaulted to an empty string binary.
+    * If message value is a list, it is expected to be a list of key/value tuples.
+    * Partition can be specified by the keyword option `partition:` and an integer corresponding to a specific
+      partition, or the keyword option `partitioner:` and the atoms `:md5` or `:random`. The atoms
+      correspond to partitioner functions that will uniformely select a random partition
+      from the total available topic partitions or assign an integer based on an md5 hash of the messages.
   """
 
   alias Elsa.Util
 
+  @type hostname :: atom() | String.t()
+  @type portnum :: pos_integer()
+  @type endpoints :: [{hostname(), portnum()}]
+  @type topic :: String.t()
+
   @doc """
-  Write the supplied message(s) to the desired topic/partition via an endpoint list or named client.
-  If no client or endpoint is supplied, the default named client is chosen. If no partition is supplied,
-  the first (zero) partition is chosen. Value may be a single message or a list of messages. If a list
-  of messages is supplied as the value, the key is defaulted to the binary "ignored" and understood
-  to be ignored by the cluster.
-  If message value is a list, it is expected to be a list of key/value tuples.
-  Partition can be an integer corresponding to a specific numbered partition, or the atoms "random" or
-  "md5". The atoms correspond to partitioner functions that will uniformely select a random partition
-  from the total available partitions of the topic or assign an integer based on an md5 hash of the messages
-  to be written respectively.
+  Write the supplied message(s) to the desired topic/partition via an endpoint list and optional named client
+  as a one-off operation. Following the completion of the operation, the producer is stopped.
+  If no client is supplied, the default named client is chosen.
   """
+  @spec produce(endpoints(), topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
   def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
     name = get_client(opts)
+    client_pid = Process.whereis(name)
 
-    Elsa.Producer.Manager.start_producer(endpoints, topic, name: name)
-    produce_sync(topic, messages, Keyword.put(opts, :name, name))
+    with {:ok, _client} <- Elsa.Util.start_client(endpoints, name),
+         :ok <- :brod.start_producer(name, topic, opts),
+         :ok <- produce_sync(topic, messages, Keyword.put(opts, :name, name)),
+         :brod_client.stop_producer(name, topic) do
+      Logger.info("Successfully produced to #{topic}")
+      if client_pid == nil, do: :brod.stop_client(name)
+      :ok
+    else
+      error -> {:error, "Failed to produce: #{inspect(error)}"}
+    end
   end
 
+  @doc """
+  Write the supplied messages to the desired topic/partition via a named client specified as a keyword
+  option (via the `name:` key). Messages may be a single message or a list of messages.
+  """
+  @spec produce_sync(topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
   def produce_sync(topic, messages, opts \\ [])
 
   def produce_sync(topic, messages, opts) when is_list(messages) do

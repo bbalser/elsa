@@ -27,6 +27,7 @@ defmodule Elsa.MixProject do
   defp deps do
     [
       {:brod, "~> 3.7"},
+      {:patiently, "~> 0.2", only: [:dev, :test, :integration]},
       {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
       {:divo_kafka, "~> 0.1.0", only: [:dev, :test, :integration]},
       {:placebo, "~> 1.2.2", only: [:dev, :test]},
