@@ -68,18 +68,7 @@ defmodule Elsa.ProducerTest do
     test "produces to the specified topic with no prior broker" do
       Elsa.create_topic(@brokers, "producer-topic3")
 
-      Patiently.wait_for!(
-        fn ->
-          case Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", "value2"}], partition: 0) do
-            :ok ->
-              true
-            _ ->
-              false
-          end
-        end,
-        dwell: 100,
-        max_retries: 5
-      )
+      Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", "value2"}], partition: 0)
 
       parsed_messages = retrieve_results(@brokers, "producer-topic3", 0, 0)
 
@@ -114,7 +103,7 @@ defmodule Elsa.ProducerTest do
   end
 
   describe "no producer started" do
-    test "will return {:error, :client_down when no client has been started}" do
+    test "will return {:error, :client_down} when no client has been started" do
       Elsa.create_topic(@brokers, "bad-topic")
 
       messages = [{"key", "value"}]

@@ -30,15 +30,17 @@ defmodule Elsa.Producer do
   @spec produce(endpoints(), topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
   def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
     name = get_client(opts)
+    client_pid = Process.whereis(name)
 
-    {:ok, producer_supervisor} = Elsa.Producer.Supervisor.start_link(name: name, endpoints: endpoints, topic: topic)
-
-    case produce_sync(topic, messages, Keyword.put(opts, :name, name)) do
-      :ok ->
-        Process.exit(producer_supervisor, :shutdown)
-        :ok
-      error ->
-        {:error, inspect(error)}
+    with {:ok, _client} <- Elsa.Util.start_client(endpoints, name),
+         :ok <- :brod.start_producer(name, topic, opts),
+         :ok <- produce_sync(topic, messages, Keyword.put(opts, :name, name)),
+         :brod_client.stop_producer(name, topic) do
+      Logger.info("Successfully produced to #{topic}")
+      if client_pid == nil, do: :brod.stop_client(name)
+      :ok
+    else
+      error -> {:error, "Failed to produce: #{inspect(error)}"}
     end
   end
 

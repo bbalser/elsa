@@ -1,10 +1,17 @@
 defmodule Elsa.Producer.Supervisor do
   @moduledoc """
-  Define a supervisor to create and manage producer processes, one
-  per topic partition.
+  Define a supervisor to create and manage producer processes for
+  a given topic, one per topic partition. The supervisor will start
+  a client if one is not already started and passed by name as an
+  argument to the supervisor.
   """
   use Supervisor, restart: :transient
 
+  @doc """
+  Start a named process for handling subsequent produce_sync requests to write
+  messages to a topic. Producer processes are bound to a specific topic.
+  """
+  @spec start_link(name: atom(), endpoints: keyword(), topic: String.t()) :: {:ok, pid()}
   def start_link(init_opts) do
     name = Keyword.fetch!(init_opts, :name)
     supervisor_name = supervisor_name(name)
@@ -20,10 +27,17 @@ defmodule Elsa.Producer.Supervisor do
 
     num_partitions = Elsa.Util.partition_count(endpoints, topic)
 
-    client = %{
-      id: name,
-      start: {Elsa.Util, :start_client, [endpoints, name]}
-    }
+    client =
+      case Process.whereis(name) do
+        nil ->
+          %{
+            id: name,
+            start: {Elsa.Util, :start_client, [endpoints, name]}
+          }
+
+        _pid ->
+          []
+      end
 
     partition_producers =
       Enum.map(0..(num_partitions - 1), fn partition ->
