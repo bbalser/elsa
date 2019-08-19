@@ -96,7 +96,8 @@ defmodule Elsa.Group.Manager do
       :lifecycle_handler,
       :handler,
       :handler_init_args,
-      :workers
+      :workers,
+      :generation_id
     ]
   end
 
@@ -118,7 +119,6 @@ defmodule Elsa.Group.Manager do
   """
   @spec assignments_revoked(pid()) :: :ok
   def assignments_revoked(pid) do
-    Logger.error("Assignments revoked : #{inspect(pid)}")
     GenServer.call(pid, :revoke_assignments)
   end
 
@@ -196,20 +196,19 @@ defmodule Elsa.Group.Manager do
             WorkerManager.start_worker(workers, generation_id, assignment, state)
           end)
 
-        {:reply, :ok, %{state | workers: new_workers}}
+        {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
     end
   end
 
   def handle_call(:revoke_assignments, _from, state) do
-    :ok = apply(state.lifecycle_handler, :assignments_revoked, [])
+    Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
-    {:reply, :ok, %{state | workers: new_workers}}
+    :ok = apply(state.lifecycle_handler, :assignments_revoked, [])
+    {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
-    assignment_generation_id = WorkerManager.get_generation_id(state.workers, topic, partition)
-
-    case assignment_generation_id == generation_id do
+    case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
         :ok = :brod.consume_ack(state.name, topic, partition, offset)

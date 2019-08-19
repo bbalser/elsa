@@ -39,7 +39,8 @@ defmodule Elsa.Group.LifecycleHooksTest do
     state = %{
       workers: :workers,
       group: "group1",
-      lifecycle_handler: LifecycleHandler
+      lifecycle_handler: LifecycleHandler,
+      generation_id: :generation_id
     }
 
     [state: state]
@@ -73,8 +74,9 @@ defmodule Elsa.Group.LifecycleHooksTest do
   end
 
   test "assignments_revoked calls lifecycle hook", %{state: state} do
-    {:reply, :ok, ^state} = Elsa.Group.Manager.handle_call(:revoke_assignments, self(), state)
+    {:reply, :ok, new_state} = Elsa.Group.Manager.handle_call(:revoke_assignments, self(), state)
 
+    assert new_state == %{state | generation_id: nil}
     assert_received :assignments_revoked
   end
 end
