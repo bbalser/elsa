@@ -5,30 +5,6 @@ defmodule Elsa.Group.LifecycleHooksTest do
   alias Elsa.Group.Manager.WorkerManager
   import Elsa.Group.Manager, only: [brod_received_assignment: 1]
 
-  defmodule LifecycleHandler do
-    use Elsa.Group.LifecycleHandler
-
-    def assignment_received(group, topic, partition, generation_id) do
-      pid = Agent.get(Elsa.Group.LifecycleHooksTest, fn s -> s end)
-      send(pid, {:assignment_received, group, topic, partition, generation_id})
-      :ok
-    end
-
-    def assignments_revoked() do
-      pid = Agent.get(Elsa.Group.LifecycleHooksTest, fn s -> s end)
-      send(pid, :assignments_revoked)
-      :ok
-    end
-  end
-
-  defmodule ErrorLifecycleHandler do
-    use Elsa.Group.LifecycleHandler
-
-    def assignment_received(_group, _topic, _partition, _generation_id) do
-      {:error, :some_reason}
-    end
-  end
-
   setup do
     test_pid = self()
     Agent.start_link(fn -> test_pid end, name: __MODULE__)
@@ -36,10 +12,19 @@ defmodule Elsa.Group.LifecycleHooksTest do
     allow WorkerManager.start_worker(any(), any(), any(), any()), return: :workers
     allow WorkerManager.stop_all_workers(any()), return: :workers
 
+    test_pid = self()
+
     state = %{
       workers: :workers,
       group: "group1",
-      lifecycle_handler: LifecycleHandler,
+      assignment_received_handler: fn group, topic, partition, generation_id ->
+        send(test_pid, {:assignment_received, group, topic, partition, generation_id})
+        :ok
+      end,
+      assignments_revoked_handler: fn ->
+        send(test_pid, :assignments_revoked)
+        :ok
+      end,
       generation_id: :generation_id
     }
 
@@ -60,7 +45,7 @@ defmodule Elsa.Group.LifecycleHooksTest do
   end
 
   test "lifecycle handler can stop processing assignments", %{state: state} do
-    error_state = %{state | lifecycle_handler: ErrorLifecycleHandler}
+    error_state = %{state | assignment_received_handler: fn _, _, _, _ -> {:error, :some_reason} end}
 
     assignments = [
       brod_received_assignment(topic: "topic1", partition: 0, begin_offset: 0),

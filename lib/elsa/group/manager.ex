@@ -26,8 +26,11 @@ defmodule Elsa.Group.Manager do
   @typedoc "Module that implements the Elsa.Consumer.MessageHandler behaviour"
   @type handler :: module()
 
-  @typedoc "Module that implements the Elsa.Group.LifecycleHandler"
-  @type lifecycle_handler :: module()
+  @typedoc "Function called for each new assignment"
+  @type assignment_received_handler :: (group(), topic(), partition(), generation_id() -> :ok | {:error, term()})
+
+  @typedoc "Function called for when assignments have been revoked"
+  @type assignments_revoked_handler :: (() -> :ok)
 
   @typedoc "endpoints to connect to kafka brokers"
   @type endpoints :: [{hostname(), portnum()}]
@@ -74,7 +77,8 @@ defmodule Elsa.Group.Manager do
           endpoints: endpoints(),
           group: group(),
           topics: [topic()],
-          lifecycle_handler: lifecycle_handler(),
+          assignment_received_handler: assignment_received_handler(),
+          assignments_revoked_handler: assignments_revoked_handler(),
           handler: handler(),
           handler_init_args: term(),
           config: consumer_config()
@@ -93,7 +97,8 @@ defmodule Elsa.Group.Manager do
       :client_pid,
       :group_coordinator_pid,
       :supervisor_pid,
-      :lifecycle_handler,
+      :assignment_received_handler,
+      :assignments_revoked_handler,
       :handler,
       :handler_init_args,
       :workers,
@@ -157,7 +162,8 @@ defmodule Elsa.Group.Manager do
       name: Keyword.fetch!(opts, :name),
       topics: Keyword.fetch!(opts, :topics),
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
-      lifecycle_handler: Keyword.get(opts, :lifecycle_handler, Elsa.Group.DefaultLifecycleHandler),
+      assignment_received_handler: Keyword.get(opts, :assignment_received_handler, fn _g, _t, _p, _gen -> :ok end),
+      assignments_revoked_handler: Keyword.get(opts, :assignments_revoked_handler, fn -> :ok end),
       handler: Keyword.fetch!(opts, :handler),
       handler_init_args: Keyword.get(opts, :handler_init_args, %{}),
       config: Keyword.get(opts, :config, []),
@@ -203,7 +209,7 @@ defmodule Elsa.Group.Manager do
   def handle_call(:revoke_assignments, _from, state) do
     Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
-    :ok = apply(state.lifecycle_handler, :assignments_revoked, [])
+    :ok = apply(state.assignments_revoked_handler, [])
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
@@ -233,7 +239,7 @@ defmodule Elsa.Group.Manager do
 
   defp call_lifecycle_assignment_received(state, assignments, generation_id) do
     Enum.reduce_while(assignments, :ok, fn brod_received_assignment(topic: topic, partition: partition), :ok ->
-      case apply(state.lifecycle_handler, :assignment_received, [state.group, topic, partition, generation_id]) do
+      case apply(state.assignment_received_handler, [state.group, topic, partition, generation_id]) do
         :ok -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, reason}}
       end
