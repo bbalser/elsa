@@ -7,8 +7,11 @@ defmodule Elsa.Group.Manager do
   """
   use GenServer
   require Logger
+  import Record, only: [defrecord: 2, extract: 2]
   import Elsa.Group.Supervisor, only: [registry: 1]
   alias Elsa.Group.Manager.WorkerManager
+
+  defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
 
   @behaviour :brod_group_member
 
@@ -16,9 +19,18 @@ defmodule Elsa.Group.Manager do
   @type portnum :: pos_integer()
 
   @type topic :: String.t()
+  @type group :: String.t()
+  @type partition :: pos_integer()
+  @type generation_id :: pos_integer()
 
   @typedoc "Module that implements the Elsa.Consumer.MessageHandler behaviour"
   @type handler :: module()
+
+  @typedoc "Function called for each new assignment"
+  @type assignment_received_handler :: (group(), topic(), partition(), generation_id() -> :ok | {:error, term()})
+
+  @typedoc "Function called for when assignments have been revoked"
+  @type assignments_revoked_handler :: (() -> :ok)
 
   @typedoc "endpoints to connect to kafka brokers"
   @type endpoints :: [{hostname(), portnum()}]
@@ -63,8 +75,10 @@ defmodule Elsa.Group.Manager do
   @type start_config :: [
           name: atom(),
           endpoints: endpoints(),
-          group: String.t(),
+          group: group(),
           topics: [topic()],
+          assignment_received_handler: assignment_received_handler(),
+          assignments_revoked_handler: assignments_revoked_handler(),
           handler: handler(),
           handler_init_args: term(),
           config: consumer_config()
@@ -83,9 +97,12 @@ defmodule Elsa.Group.Manager do
       :client_pid,
       :group_coordinator_pid,
       :supervisor_pid,
+      :assignment_received_handler,
+      :assignments_revoked_handler,
       :handler,
       :handler_init_args,
-      :workers
+      :workers,
+      :generation_id
     ]
   end
 
@@ -98,7 +115,7 @@ defmodule Elsa.Group.Manager do
   """
   @spec assignments_received(pid(), term(), integer(), [tuple()]) :: :ok
   def assignments_received(pid, _group, generation_id, assignments) do
-    GenServer.cast(pid, {:process_assignments, generation_id, assignments})
+    GenServer.call(pid, {:process_assignments, generation_id, assignments})
   end
 
   @doc """
@@ -107,8 +124,7 @@ defmodule Elsa.Group.Manager do
   """
   @spec assignments_revoked(pid()) :: :ok
   def assignments_revoked(pid) do
-    Logger.error("Assignments revoked : #{inspect(pid)}")
-    GenServer.cast(pid, :revoke_assignments)
+    GenServer.call(pid, :revoke_assignments)
   end
 
   @doc """
@@ -146,6 +162,8 @@ defmodule Elsa.Group.Manager do
       name: Keyword.fetch!(opts, :name),
       topics: Keyword.fetch!(opts, :topics),
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
+      assignment_received_handler: Keyword.get(opts, :assignment_received_handler, fn _g, _t, _p, _gen -> :ok end),
+      assignments_revoked_handler: Keyword.get(opts, :assignments_revoked_handler, fn -> :ok end),
       handler: Keyword.fetch!(opts, :handler),
       handler_init_args: Keyword.get(opts, :handler_init_args, %{}),
       config: Keyword.get(opts, :config, []),
@@ -173,24 +191,30 @@ defmodule Elsa.Group.Manager do
       wait_and_stop(reason, state)
   end
 
-  def handle_cast({:process_assignments, generation_id, assignments}, state) do
-    new_workers =
-      Enum.reduce(assignments, state.workers, fn assignment, workers ->
-        WorkerManager.start_worker(workers, generation_id, assignment, state)
-      end)
+  def handle_call({:process_assignments, generation_id, assignments}, _from, state) do
+    case call_lifecycle_assignment_received(state, assignments, generation_id) do
+      {:error, reason} ->
+        {:stop, reason, {:error, reason}, state}
 
-    {:noreply, %{state | workers: new_workers}}
+      :ok ->
+        new_workers =
+          Enum.reduce(assignments, state.workers, fn assignment, workers ->
+            WorkerManager.start_worker(workers, generation_id, assignment, state)
+          end)
+
+        {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
+    end
   end
 
-  def handle_cast(:revoke_assignments, state) do
+  def handle_call(:revoke_assignments, _from, state) do
+    Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
-    {:noreply, %{state | workers: new_workers}}
+    :ok = apply(state.assignments_revoked_handler, [])
+    {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
-    assignment_generation_id = WorkerManager.get_generation_id(state.workers, topic, partition)
-
-    case assignment_generation_id == generation_id do
+    case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
         :ok = :brod.consume_ack(state.name, topic, partition, offset)
@@ -211,6 +235,15 @@ defmodule Elsa.Group.Manager do
 
   def handle_info({:EXIT, _from, reason}, state) do
     wait_and_stop(reason, state)
+  end
+
+  defp call_lifecycle_assignment_received(state, assignments, generation_id) do
+    Enum.reduce_while(assignments, :ok, fn brod_received_assignment(topic: topic, partition: partition), :ok ->
+      case apply(state.assignment_received_handler, [state.group, topic, partition, generation_id]) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   defp wait_and_stop(reason, state) do
