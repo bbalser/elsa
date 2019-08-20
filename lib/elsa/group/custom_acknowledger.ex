@@ -32,10 +32,13 @@ defmodule Elsa.Group.CustomAcknowledger do
 
   def handle_call({:ack, member_id, topic, partition, generation_id, offset}, _from, state) do
     request = make_request_body(state, member_id, topic, partition, generation_id, offset)
-    response = :brod_utils.request_sync(state.connection, request, @timeout)
-    IO.inspect(response, label: "Response")
 
-    {:reply, :ok, state}
+    with {:ok, response} <- :brod_utils.request_sync(state.connection, request, @timeout),
+         :ok <- parse_response(response) do
+      {:reply, :ok, state}
+    else
+      {:error, reason} -> {:stop, reason, state}
+    end
   end
 
   defp make_request_body(state, member_id, topic, partition, generation_id, offset) do
@@ -63,5 +66,24 @@ defmodule Elsa.Group.CustomAcknowledger do
     }
 
     :brod_kafka_request.offset_commit(state.connection, request_body)
+  end
+
+  defp parse_response(response) do
+    case parse_offset_commit_response(response) do
+      [] -> :ok
+      errors -> {:error, errors}
+    end
+  end
+
+  defp parse_offset_commit_response(response) do
+    response.responses
+    |> Enum.map(&parse_partition_responses/1)
+    |> List.flatten()
+  end
+
+  defp parse_partition_responses(%{topic: topic, partition_responses: responses}) do
+    responses
+    |> Enum.filter(fn %{error_code: code} -> code != :no_error end)
+    |> Enum.map(fn %{error_code: code, partition: partition} -> %{topic: topic, error: code, partition: partition} end)
   end
 end

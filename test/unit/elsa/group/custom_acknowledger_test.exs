@@ -7,6 +7,12 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
 
   @client :brod_client
   @group "group1"
+  @moduletag :capture_log
+
+  setup do
+    Process.flag(:trap_exit, true)
+    :ok
+  end
 
   describe "ack/6 - happy path" do
     setup do
@@ -15,7 +21,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
 
       allow :kpro.connect(any(), any()), return: {:ok, :connection}
       allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
-      allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, :response}
+      allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, %{responses: []}}
 
       {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
@@ -44,11 +50,6 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
   end
 
   describe "ack/6 - exception paths" do
-    setup do
-      Process.flag(:trap_exit, true)
-      :ok
-    end
-
     test "dies when unable to find group_coordinator" do
       allow :brod_client.get_group_coordinator(any(), any()), return: {:error, :something_went_wrong}
 
@@ -68,6 +69,56 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :bad_connection}
+    end
+  end
+
+  describe "bad responses from ack/6" do
+    setup do
+      allow :brod_client.get_group_coordinator(any(), any()),
+        return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
+
+      allow :kpro.connect(any(), any()), return: {:ok, :connection}
+      allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
+
+      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      on_exit(fn -> wait(pid) end)
+      [pid: pid]
+    end
+
+    test "process dies when error in talking to coordinator", %{pid: pid} do
+      allow :brod_utils.request_sync(any(), any(), any()), return: {:error, "some reason"}
+
+      try do
+        CustomAcknowledger.ack(pid, :member_id, "topic1", 0, 7, 32)
+        flunk("Should have exited custom acknowledger")
+      catch
+        :exit, _ -> nil
+      end
+
+      assert_receive {:EXIT, ^pid, "some reason"}
+    end
+
+    test "process dies when ack response contains errors", %{pid: pid} do
+      response = %{
+        responses: [
+          %{topic: "topic2", partition_responses: [%{error_code: :no_error, partition: 0}]},
+          %{
+            topic: "topic1",
+            partition_responses: [%{error_code: :no_error, partition: 0}, %{error_code: :bad_stuff, partition: 1}]
+          }
+        ]
+      }
+
+      allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, response}
+
+      try do
+        CustomAcknowledger.ack(pid, :member_id, "topic1", 0, 7, 32)
+        flunk("Should have exited custom acknowledger")
+      catch
+        :exit, _ -> nil
+      end
+
+      assert_receive {:EXIT, ^pid, [%{topic: "topic1", partition: 1, error: :bad_stuff}]}
     end
   end
 

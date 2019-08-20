@@ -12,9 +12,12 @@ defmodule Elsa.Group.LifecycleHooksTest do
     allow WorkerManager.start_worker(any(), any(), any(), any()), return: :workers
     allow WorkerManager.stop_all_workers(any()), return: :workers
 
+    :ets.new(:fake_test_name_hack_table, [:set, :public, :named_table])
+
     test_pid = self()
 
     state = %{
+      name: :fake_test_name,
       workers: :workers,
       group: "group1",
       assignment_received_handler: fn group, topic, partition, generation_id ->
@@ -38,7 +41,7 @@ defmodule Elsa.Group.LifecycleHooksTest do
     ]
 
     {:reply, :ok, ^state} =
-      Elsa.Group.Manager.handle_call({:process_assignments, :generation_id, assignments}, self(), state)
+      Elsa.Group.Manager.handle_call({:process_assignments, :member_id, :generation_id, assignments}, self(), state)
 
     assert_received {:assignment_received, "group1", "topic1", 0, :generation_id}
     assert_received {:assignment_received, "group1", "topic1", 1, :generation_id}
@@ -53,7 +56,11 @@ defmodule Elsa.Group.LifecycleHooksTest do
     ]
 
     {:stop, :some_reason, {:error, :some_reason}, ^error_state} =
-      Elsa.Group.Manager.handle_call({:process_assignments, :generation_id, assignments}, self(), error_state)
+      Elsa.Group.Manager.handle_call(
+        {:process_assignments, :member_id, :generation_id, assignments},
+        self(),
+        error_state
+      )
 
     refute_called WorkerManager.start_worker(any(), any(), any(), any())
   end

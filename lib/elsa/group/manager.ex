@@ -226,11 +226,7 @@ defmodule Elsa.Group.Manager do
         table_name = table_name(state.name)
         :ets.insert(table_name, {:assignments, member_id, generation_id})
 
-        new_workers =
-          Enum.reduce(assignments, state.workers, fn assignment, workers ->
-            WorkerManager.start_worker(workers, generation_id, assignment, state)
-          end)
-
+        new_workers = start_workers(state, generation_id, assignments)
         {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
     end
   end
@@ -276,6 +272,12 @@ defmodule Elsa.Group.Manager do
     end)
   end
 
+  defp start_workers(state, generation_id, assignments) do
+    Enum.reduce(assignments, state.workers, fn assignment, workers ->
+      WorkerManager.start_worker(workers, generation_id, assignment, state)
+    end)
+  end
+
   defp wait_and_stop(reason, state) do
     Process.sleep(2_000)
     {:stop, reason, state}
@@ -298,6 +300,7 @@ defmodule Elsa.Group.Manager do
 
         {:ok, custom_acknowledger_pid} =
           Elsa.Group.CustomAcknowledger.start_link(name: name, client: state.name, group: state.group)
+
         custom_acknowledger_pid
     end
   end
