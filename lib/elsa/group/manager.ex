@@ -102,7 +102,8 @@ defmodule Elsa.Group.Manager do
       :handler,
       :handler_init_args,
       :workers,
-      :generation_id
+      :generation_id,
+      :direct_acknowledger_pid
     ]
   end
 
@@ -114,8 +115,8 @@ defmodule Elsa.Group.Manager do
   Trigger the assignment of workers to a given topic and partition
   """
   @spec assignments_received(pid(), term(), integer(), [tuple()]) :: :ok
-  def assignments_received(pid, _group, generation_id, assignments) do
-    GenServer.call(pid, {:process_assignments, generation_id, assignments})
+  def assignments_received(pid, group_member_id, generation_id, assignments) do
+    GenServer.call(pid, {:process_assignments, group_member_id, generation_id, assignments})
   end
 
   @doc """
@@ -132,8 +133,27 @@ defmodule Elsa.Group.Manager do
   """
   @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: :ok
   def ack(name, topic, partition, generation_id, offset) do
-    group_manager = {:via, Registry, {registry(name), __MODULE__}}
-    GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
+    case direct_ack?(name) do
+      false ->
+        group_manager = {:via, Registry, {registry(name), __MODULE__}}
+        GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
+
+      true ->
+        case :ets.lookup(table_name(name), :assignments) do
+          [{:assignments, member_id, assigned_generation_id}] when assigned_generation_id == generation_id ->
+            direct_acknowledger = {:via, Registry, {registry(name), Elsa.Group.DirectAcknowledger}}
+            Elsa.Group.DirectAcknowledger.ack(direct_acknowledger, member_id, topic, partition, generation_id, offset)
+
+          _ ->
+            Logger.warn(
+              "Invalid generation_id(#{generation_id}), ignoring ack - topic #{topic} partition #{partition} offset #{
+                offset
+              }"
+            )
+        end
+
+        :ok
+    end
   end
 
   @doc """
@@ -170,6 +190,10 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
+    table_name = table_name(state.name)
+    :ets.new(table_name, [:set, :protected, :named_table])
+    :ets.insert(table_name, {:direct_ack, Keyword.get(opts, :direct_ack, false)})
+
     {:ok, state, {:continue, :start_coordinator}}
   end
 
@@ -185,23 +209,28 @@ defmodule Elsa.Group.Manager do
 
     Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)
 
-    {:noreply, %{state | client_pid: client_pid, group_coordinator_pid: group_coordinator_pid}}
+    {:noreply,
+     %{
+       state
+       | client_pid: client_pid,
+         group_coordinator_pid: group_coordinator_pid,
+         direct_acknowledger_pid: create_direct_acknowledger(state)
+     }}
   catch
     :exit, reason ->
       wait_and_stop(reason, state)
   end
 
-  def handle_call({:process_assignments, generation_id, assignments}, _from, state) do
+  def handle_call({:process_assignments, member_id, generation_id, assignments}, _from, state) do
     case call_lifecycle_assignment_received(state, assignments, generation_id) do
       {:error, reason} ->
         {:stop, reason, {:error, reason}, state}
 
       :ok ->
-        new_workers =
-          Enum.reduce(assignments, state.workers, fn assignment, workers ->
-            WorkerManager.start_worker(workers, generation_id, assignment, state)
-          end)
+        table_name = table_name(state.name)
+        :ets.insert(table_name, {:assignments, member_id, generation_id})
 
+        new_workers = start_workers(state, generation_id, assignments)
         {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
     end
   end
@@ -210,6 +239,7 @@ defmodule Elsa.Group.Manager do
     Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
     :ok = apply(state.assignments_revoked_handler, [])
+    :ets.delete(table_name(state.name), :assignments)
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
@@ -222,7 +252,12 @@ defmodule Elsa.Group.Manager do
         {:noreply, %{state | workers: new_workers}}
 
       false ->
-        Logger.warn("Invalid generation_id, ignoring ack - topic #{topic} parition #{partition} offset #{offset}")
+        Logger.warn(
+          "Invalid generation_id #{state.generation_id} == #{generation_id}, ignoring ack - topic #{topic} partition #{
+            partition
+          } offset #{offset}"
+        )
+
         {:noreply, state}
     end
   end
@@ -246,8 +281,40 @@ defmodule Elsa.Group.Manager do
     end)
   end
 
+  defp start_workers(state, generation_id, assignments) do
+    Enum.reduce(assignments, state.workers, fn assignment, workers ->
+      WorkerManager.start_worker(workers, generation_id, assignment, state)
+    end)
+  end
+
   defp wait_and_stop(reason, state) do
     Process.sleep(2_000)
     {:stop, reason, state}
+  end
+
+  defp direct_ack?(name) do
+    case :ets.lookup(table_name(name), :direct_ack) do
+      [{:direct_ack, result}] -> result
+      _ -> false
+    end
+  end
+
+  defp create_direct_acknowledger(state) do
+    case direct_ack?(state.name) do
+      false ->
+        nil
+
+      true ->
+        name = {:via, Registry, {registry(state.name), Elsa.Group.DirectAcknowledger}}
+
+        {:ok, direct_acknowledger_pid} =
+          Elsa.Group.DirectAcknowledger.start_link(name: name, client: state.name, group: state.group)
+
+        direct_acknowledger_pid
+    end
+  end
+
+  defp table_name(name) do
+    :"#{name}_elsa_table"
   end
 end
