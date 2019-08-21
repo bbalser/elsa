@@ -1,5 +1,6 @@
 defmodule Elsa.Group.CustomAcknowledger do
   use GenServer
+  require Logger
 
   @timeout 5_000
 
@@ -24,9 +25,21 @@ defmodule Elsa.Group.CustomAcknowledger do
   def handle_continue(:connect, state) do
     with {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(state.client, state.group),
          {:ok, connection} <- :kpro.connect(endpoint, conn_config) do
+      Logger.debug(fn -> "#{__MODULE__}: Coordinator available for group #{state.group} on client #{state.client}" end)
       {:noreply, Map.put(state, :connection, connection)}
     else
-      {:error, reason} -> {:stop, reason, state}
+      {:error, reason} when is_list(reason) ->
+        case Keyword.get(reason, :error_code) do
+          :coordinator_not_available ->
+            Process.sleep(1_000)
+            {:noreply, state, {:continue, :connect}}
+
+          _ ->
+            {:stop, reason, state}
+        end
+
+      {:error, reason} ->
+        {:stop, reason, state}
     end
   end
 

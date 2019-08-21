@@ -59,6 +59,18 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       assert_receive {:EXIT, ^pid, :something_went_wrong}
     end
 
+    test "retries to connect to group coordinator when coordinator_not_available error" do
+      allow :brod_client.get_group_coordinator(any(), any()),
+        seq: [{:error, [error_code: :coordinator_not_available]}, {:error, :something_went_wrong}]
+
+      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      on_exit(fn -> wait(pid) end)
+
+      assert_receive {:EXIT, ^pid, :something_went_wrong}, 2_000
+
+      assert_called :brod_client.get_group_coordinator(any(), any()), times(2)
+    end
+
     test "dies when unable to connection to group coordinator" do
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}

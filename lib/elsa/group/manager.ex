@@ -144,8 +144,12 @@ defmodule Elsa.Group.Manager do
             custom_acknowledger = {:via, Registry, {registry(name), Elsa.Group.CustomAcknowledger}}
             Elsa.Group.CustomAcknowledger.ack(custom_acknowledger, member_id, topic, partition, generation_id, offset)
 
-          [] ->
-            Logger.warn("Invalid generation_id, ignoring ack - topic #{topic} parition #{partition} offset #{offset}")
+          _ ->
+            Logger.warn(
+              "Invalid generation_id(#{generation_id}), ignoring ack - topic #{topic} partition #{partition} offset #{
+                offset
+              }"
+            )
         end
 
         :ok
@@ -248,7 +252,12 @@ defmodule Elsa.Group.Manager do
         {:noreply, %{state | workers: new_workers}}
 
       false ->
-        Logger.warn("Invalid generation_id, ignoring ack - topic #{topic} parition #{partition} offset #{offset}")
+        Logger.warn(
+          "Invalid generation_id #{state.generation_id} == #{generation_id}, ignoring ack - topic #{topic} partition #{
+            partition
+          } offset #{offset}"
+        )
+
         {:noreply, state}
     end
   end
