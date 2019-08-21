@@ -103,7 +103,7 @@ defmodule Elsa.Group.Manager do
       :handler_init_args,
       :workers,
       :generation_id,
-      :custom_acknowledger_pid
+      :direct_acknowledger_pid
     ]
   end
 
@@ -133,7 +133,7 @@ defmodule Elsa.Group.Manager do
   """
   @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: :ok
   def ack(name, topic, partition, generation_id, offset) do
-    case custom_ack_hack?(name) do
+    case direct_ack?(name) do
       false ->
         group_manager = {:via, Registry, {registry(name), __MODULE__}}
         GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
@@ -141,8 +141,8 @@ defmodule Elsa.Group.Manager do
       true ->
         case :ets.lookup(table_name(name), :assignments) do
           [{:assignments, member_id, assigned_generation_id}] when assigned_generation_id == generation_id ->
-            custom_acknowledger = {:via, Registry, {registry(name), Elsa.Group.CustomAcknowledger}}
-            Elsa.Group.CustomAcknowledger.ack(custom_acknowledger, member_id, topic, partition, generation_id, offset)
+            direct_acknowledger = {:via, Registry, {registry(name), Elsa.Group.DirectAcknowledger}}
+            Elsa.Group.DirectAcknowledger.ack(direct_acknowledger, member_id, topic, partition, generation_id, offset)
 
           _ ->
             Logger.warn(
@@ -192,7 +192,7 @@ defmodule Elsa.Group.Manager do
 
     table_name = table_name(state.name)
     :ets.new(table_name, [:set, :protected, :named_table])
-    :ets.insert(table_name, {:custom_ack_hack, Keyword.get(opts, :custom_ack_hack, false)})
+    :ets.insert(table_name, {:direct_ack, Keyword.get(opts, :direct_ack, false)})
 
     {:ok, state, {:continue, :start_coordinator}}
   end
@@ -214,7 +214,7 @@ defmodule Elsa.Group.Manager do
        state
        | client_pid: client_pid,
          group_coordinator_pid: group_coordinator_pid,
-         custom_acknowledger_pid: create_custom_acknowledger(state)
+         direct_acknowledger_pid: create_direct_acknowledger(state)
      }}
   catch
     :exit, reason ->
@@ -292,29 +292,29 @@ defmodule Elsa.Group.Manager do
     {:stop, reason, state}
   end
 
-  defp custom_ack_hack?(name) do
-    case :ets.lookup(table_name(name), :custom_ack_hack) do
-      [{:custom_ack_hack, result}] -> result
+  defp direct_ack?(name) do
+    case :ets.lookup(table_name(name), :direct_ack) do
+      [{:direct_ack, result}] -> result
       _ -> false
     end
   end
 
-  defp create_custom_acknowledger(state) do
-    case custom_ack_hack?(state.name) do
+  defp create_direct_acknowledger(state) do
+    case direct_ack?(state.name) do
       false ->
         nil
 
       true ->
-        name = {:via, Registry, {registry(state.name), Elsa.Group.CustomAcknowledger}}
+        name = {:via, Registry, {registry(state.name), Elsa.Group.DirectAcknowledger}}
 
-        {:ok, custom_acknowledger_pid} =
-          Elsa.Group.CustomAcknowledger.start_link(name: name, client: state.name, group: state.group)
+        {:ok, direct_acknowledger_pid} =
+          Elsa.Group.DirectAcknowledger.start_link(name: name, client: state.name, group: state.group)
 
-        custom_acknowledger_pid
+        direct_acknowledger_pid
     end
   end
 
   defp table_name(name) do
-    :"#{name}_hack_table"
+    :"#{name}_elsa_table"
   end
 end

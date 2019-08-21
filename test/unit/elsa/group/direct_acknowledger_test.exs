@@ -1,9 +1,9 @@
-defmodule Elsa.Group.CustomAcknowledgerTest do
+defmodule Elsa.Group.DirectAcknowledgerTest do
   use ExUnit.Case
   use Placebo
   import AsyncAssertion
 
-  alias Elsa.Group.CustomAcknowledger
+  alias Elsa.Group.DirectAcknowledger
 
   @client :brod_client
   @group "group1"
@@ -23,7 +23,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
       allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, %{responses: []}}
 
-      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
 
       [pid: pid]
@@ -43,7 +43,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       generation_id = 7
       offset = 32
 
-      :ok = CustomAcknowledger.ack(pid, member_id, topic, partition, generation_id, offset)
+      :ok = DirectAcknowledger.ack(pid, member_id, topic, partition, generation_id, offset)
 
       assert_called :brod_utils.request_sync(:connection, :offset_commit_kafka_request, 5_000)
     end
@@ -53,7 +53,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
     test "dies when unable to find group_coordinator" do
       allow :brod_client.get_group_coordinator(any(), any()), return: {:error, :something_went_wrong}
 
-      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :something_went_wrong}
@@ -63,7 +63,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       allow :brod_client.get_group_coordinator(any(), any()),
         seq: [{:error, [error_code: :coordinator_not_available]}, {:error, :something_went_wrong}]
 
-      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :something_went_wrong}, 2_000
@@ -77,7 +77,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
 
       allow :kpro.connect(any(), any()), return: {:error, :bad_connection}
 
-      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :bad_connection}
@@ -92,7 +92,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       allow :kpro.connect(any(), any()), return: {:ok, :connection}
       allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
 
-      {:ok, pid} = CustomAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
       [pid: pid]
     end
@@ -101,8 +101,8 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       allow :brod_utils.request_sync(any(), any(), any()), return: {:error, "some reason"}
 
       try do
-        CustomAcknowledger.ack(pid, :member_id, "topic1", 0, 7, 32)
-        flunk("Should have exited custom acknowledger")
+        DirectAcknowledger.ack(pid, :member_id, "topic1", 0, 7, 32)
+        flunk("Should have exited direct acknowledger")
       catch
         :exit, _ -> nil
       end
@@ -124,8 +124,8 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
       allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, response}
 
       try do
-        CustomAcknowledger.ack(pid, :member_id, "topic1", 0, 7, 32)
-        flunk("Should have exited custom acknowledger")
+        DirectAcknowledger.ack(pid, :member_id, "topic1", 0, 7, 32)
+        flunk("Should have exited direct acknowledger")
       catch
         :exit, _ -> nil
       end

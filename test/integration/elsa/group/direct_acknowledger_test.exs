@@ -1,4 +1,4 @@
-defmodule Elsa.Group.CustomAcknowledgerTest do
+defmodule Elsa.Group.DirectAcknowledgerTest do
   use ExUnit.Case
   use Divo
   import AsyncAssertion
@@ -15,17 +15,17 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
   @group "group-1a"
   @topic "topic-1a"
 
-  test "custom acknowledger ack over privately managed connection" do
+  test "direct acknowledger ack over privately managed connection" do
     :ok = Elsa.create_topic(@endpoints, @topic)
 
     {:ok, _elsa_sup_pid} =
       Elsa.Group.Supervisor.start_link(
-        name: :test_custom_acker,
+        name: :test_direct_acker,
         endpoints: @endpoints,
         group: @group,
         topics: [@topic],
         handler: MessageHandler,
-        custom_ack_hack: true,
+        direct_ack: true,
         config: [
           begin_offset: :earliest
         ]
@@ -36,7 +36,7 @@ defmodule Elsa.Group.CustomAcknowledgerTest do
     Process.sleep(8_000)
 
     assert_async(fn ->
-      assert 1 == get_committed_offsets(:test_custom_acker, @group, @topic, 0)
+      assert 1 == get_committed_offsets(:test_direct_acker, @group, @topic, 0)
     end)
   end
 

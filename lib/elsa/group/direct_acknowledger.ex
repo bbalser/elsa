@@ -1,4 +1,4 @@
-defmodule Elsa.Group.CustomAcknowledger do
+defmodule Elsa.Group.DirectAcknowledger do
   use GenServer
   require Logger
 
