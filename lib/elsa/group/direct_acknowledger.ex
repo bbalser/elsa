@@ -48,6 +48,7 @@ defmodule Elsa.Group.DirectAcknowledger do
 
     with {:ok, response} <- :brod_utils.request_sync(state.connection, request, @timeout),
          :ok <- parse_response(response) do
+      :brod.consume_ack(state.client, topic, partition, offset)
       {:reply, :ok, state}
     else
       {:error, reason} -> {:stop, reason, state}
