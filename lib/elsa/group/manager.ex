@@ -125,7 +125,7 @@ defmodule Elsa.Group.Manager do
   """
   @spec assignments_revoked(pid()) :: :ok
   def assignments_revoked(pid) do
-    GenServer.call(pid, :revoke_assignments)
+    GenServer.call(pid, :revoke_assignments, 30_000)
   end
 
   @doc """

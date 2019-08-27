@@ -22,6 +22,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
       allow :kpro.connect(any(), any()), return: {:ok, :connection}
       allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
       allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, %{responses: []}}
+      allow :brod.consume_ack(any(), any(), any(), any()), return: :ok
 
       {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
