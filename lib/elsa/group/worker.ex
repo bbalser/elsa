@@ -79,7 +79,7 @@ defmodule Elsa.Group.Worker do
   def handle_continue(:subscribe, state) do
     case subscribe(state) do
       {:ok, pid} ->
-        Process.link(pid)
+        Process.monitor(pid)
         {:noreply, %{state | subscriber_pid: pid}}
 
       {:error, reason} ->
@@ -108,6 +108,10 @@ defmodule Elsa.Group.Worker do
         :brod.consume_ack(state.name, topic, partition, offset)
         {:noreply, %{state | handler_state: new_handler_state}}
     end
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _message}, state) do
+    {:stop, :brod_consumer_stopped, state}
   end
 
   def handle_call(:unsubscribe, _from, state) do
