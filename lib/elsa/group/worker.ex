@@ -84,7 +84,12 @@ defmodule Elsa.Group.Worker do
       {:noreply, %{state | subscriber_pid: pid}}
     else
       {:error, reason} ->
-        Logger.warn("Unable to subscribe to topic/partition/offset(#{state.topic}/#{state.partition}/#{state.offset}), reason #{inspect(reason)}")
+        Logger.warn(
+          "Unable to subscribe to topic/partition/offset(#{state.topic}/#{state.partition}/#{state.offset}), reason #{
+            inspect(reason)
+          }"
+        )
+
         Process.sleep(@start_failure_delay)
         {:stop, reason, state}
     end

@@ -26,18 +26,7 @@ defmodule Elsa.Producer.Supervisor do
     topic = Keyword.fetch!(init_opts, :topic)
 
     num_partitions = Elsa.Util.partition_count(endpoints, topic)
-
-    client =
-      case Process.whereis(name) do
-        nil ->
-          %{
-            id: name,
-            start: {Elsa.Util, :start_client, [endpoints, name]}
-          }
-
-        _pid ->
-          []
-      end
+    :ok = Elsa.Util.start_client(endpoints, name)
 
     partition_producers =
       Enum.map(0..(num_partitions - 1), fn partition ->
@@ -47,14 +36,7 @@ defmodule Elsa.Producer.Supervisor do
         }
       end)
 
-    children =
-      [
-        client,
-        partition_producers
-      ]
-      |> List.flatten()
-
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(partition_producers, strategy: :one_for_one)
   end
 
   defp supervisor_name(name), do: :"elsa_producer_supervisor_#{name}"
