@@ -7,7 +7,10 @@ defmodule Elsa.Producer.Manager do
   @producer_retry_delay 200
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
+    name = Keyword.fetch!(opts, :name)
+    manager_name = manager_name(name)
+
+    GenServer.start_link(__MODULE__, opts, name: manager_name)
   end
 
   def init(opts) do
@@ -43,7 +46,7 @@ defmodule Elsa.Producer.Manager do
   end
 
   defp monitor_producers(name, topic, num_partitions) do
-    Enum.reduce(0..(num_partitions-1), :ok, fn partition, acc ->
+    Enum.reduce(0..(num_partitions - 1), :ok, fn partition, acc ->
       case acc do
         :ok -> monitor_producer(name, topic, partition)
         error -> error
@@ -52,6 +55,7 @@ defmodule Elsa.Producer.Manager do
   end
 
   defp monitor_producer(name, topic, partition, retries \\ @producer_retries)
+
   defp monitor_producer(name, topic, partition, 1) do
     case :brod.get_producer(name, topic, partition) do
       {:ok, pid} ->
@@ -74,4 +78,6 @@ defmodule Elsa.Producer.Manager do
         monitor_producer(name, topic, partition, retries - 1)
     end
   end
+
+  defp manager_name(name), do: :"elsa_producer_manager_#{name}"
 end

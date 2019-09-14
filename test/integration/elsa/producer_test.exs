@@ -22,6 +22,60 @@ defmodule Elsa.ProducerTest do
     end
   end
 
+  describe "producer managers" do
+    setup do
+      topic = "producer-manager-test"
+      client_name = :elsa_producer_test2
+
+      Elsa.create_topic(@brokers, topic)
+      Elsa.Util.start_client(@brokers, client_name)
+
+      client_pid = Process.whereis(client_name)
+
+      manager = [
+        {Elsa.Producer.Manager, [name: :elsa_producer_test2, endpoints: @brokers, topic: topic]}
+      ]
+
+      {:ok, supervisor} = Supervisor.start_link(manager, strategy: :one_for_one)
+
+      on_exit(fn ->
+        Process.exit(supervisor, :normal)
+        Process.exit(client_pid, :normal)
+      end)
+
+      [client_name: client_name, client_pid: client_pid, topic: topic]
+    end
+
+    test "restarts producers when the client is dropped", %{
+      client_name: client_name,
+      client_pid: client_pid,
+      topic: topic
+    } do
+      message = "everything's fine here"
+      Process.exit(client_pid, :kill)
+
+      Patiently.wait_for!(
+        fn ->
+          Process.alive?(client_pid) == false
+          Process.whereis(client_name) != nil
+        end,
+        dwell: 1_000,
+        max_tries: 30
+      )
+
+      Elsa.Producer.produce_sync(topic, message, name: client_name)
+
+      Patiently.wait_for!(
+        fn ->
+          {:ok, 1, [%Elsa.Message{value: result}]} = Elsa.fetch(@brokers, topic)
+          message == result
+        end,
+        dwell: 1_000,
+        max_tries: 10
+      )
+    end
+  end
+
   describe "preconfigured broker" do
     data_test "produces to topic" do
       Elsa.create_topic(@brokers, topic, partitions: num_partitions)
