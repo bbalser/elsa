@@ -25,8 +25,8 @@ defmodule Elsa.Producer.Supervisor do
     endpoints = Keyword.fetch!(init_opts, :endpoints)
     topic = Keyword.fetch!(init_opts, :topic)
 
-    num_partitions = Elsa.Util.partition_count(endpoints, topic)
     :ok = Elsa.Util.start_client(endpoints, name)
+    num_partitions = :brod.get_partitions_count(name, topic)
 
     partition_producers =
       Enum.map(0..(num_partitions - 1), fn partition ->
