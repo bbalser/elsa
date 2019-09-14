@@ -94,7 +94,6 @@ defmodule Elsa.Group.Manager do
       :group,
       :topics,
       :config,
-      :client_pid,
       :group_coordinator_pid,
       :supervisor_pid,
       :assignment_received_handler,
@@ -198,22 +197,17 @@ defmodule Elsa.Group.Manager do
   end
 
   def handle_continue(:start_coordinator, state) do
-    {:ok, client_pid} = Elsa.Util.start_client(state.brokers, state.name)
+    :ok = Elsa.Util.start_client(state.brokers, state.name)
 
     {:ok, group_coordinator_pid} =
       :brod_group_coordinator.start_link(state.name, state.group, state.topics, state.config, __MODULE__, self())
-
-    Enum.each(state.topics, fn topic ->
-      :ok = :brod.start_consumer(state.name, topic, state.config)
-    end)
 
     Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)
 
     {:noreply,
      %{
        state
-       | client_pid: client_pid,
-         group_coordinator_pid: group_coordinator_pid,
+       | group_coordinator_pid: group_coordinator_pid,
          direct_acknowledger_pid: create_direct_acknowledger(state)
      }}
   catch

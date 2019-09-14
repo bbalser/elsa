@@ -32,7 +32,7 @@ defmodule Elsa.Producer do
     name = get_client(opts)
     client_pid = Process.whereis(name)
 
-    with {:ok, _client} <- Elsa.Util.start_client(endpoints, name),
+    with :ok <- Elsa.Util.start_client(endpoints, name),
          :ok <- :brod.start_producer(name, topic, opts),
          :ok <- produce_sync(topic, messages, Keyword.put(opts, :name, name)),
          :brod_client.stop_producer(name, topic) do

@@ -58,21 +58,9 @@ defmodule Elsa.Util do
   Create a named client connection process for managing interactions
   with the connected cluster.
   """
-  @spec start_client(keyword(), atom()) :: {:ok, pid()} | {:error, term()}
-  def start_client(endpoints, name) do
-    endpoints
-    |> reformat_endpoints()
-    |> :brod.start_link_client(name)
-    |> case do
-      {:ok, client_pid} ->
-        {:ok, client_pid}
-
-      {:error, {:already_started, client_pid}} ->
-        {:ok, client_pid}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+  @spec start_client(keyword(), atom()) :: :ok | {:error, term()}
+  def start_client(endpoints, name, config \\ []) do
+    :brod.start_client(endpoints, name, config)
   end
 
   @doc """

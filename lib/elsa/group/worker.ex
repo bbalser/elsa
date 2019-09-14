@@ -16,6 +16,7 @@ defmodule Elsa.Group.Worker do
 
   @subscribe_delay 200
   @subscribe_retries 20
+  @start_failure_delay 5_000
 
   defmodule State do
     @moduledoc """
@@ -77,12 +78,14 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_continue(:subscribe, state) do
-    case subscribe(state) do
-      {:ok, pid} ->
-        Process.monitor(pid)
-        {:noreply, %{state | subscriber_pid: pid}}
-
+    with :ok <- :brod.start_consumer(state.name, state.topic, state.config),
+         {:ok, pid} <- subscribe(state) do
+      Process.monitor(pid)
+      {:noreply, %{state | subscriber_pid: pid}}
+    else
       {:error, reason} ->
+        Logger.warn("Unable to subscribe to topic/partition/offset(#{state.topic}/#{state.partition}/#{state.offset}), reason #{inspect(reason)}")
+        Process.sleep(@start_failure_delay)
         {:stop, reason, state}
     end
   end
@@ -136,8 +139,7 @@ defmodule Elsa.Group.Worker do
 
   defp subscribe(state, retries \\ @subscribe_retries)
 
-  defp subscribe(state, 0) do
-    Logger.error("Unable to subscribe to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
+  defp subscribe(_state, 0) do
     {:error, :failed_subscription}
   end
 
