@@ -9,8 +9,8 @@ defmodule Elsa.Group.WorkerTest do
     setup do
       Registry.start_link(keys: :unique, name: Elsa.Group.Supervisor.registry(:test_name))
       allow Elsa.Group.Manager.ack(any(), any(), any(), any(), any()), return: :ok
-      allow :brod.subscribe(any(), any(), any(), any(), any()), return: {:ok, self()}
-      allow :brod.consume_ack(any(), any(), any(), any()), return: :ok
+      allow :brod.subscribe(any(), any(), any(), any(), any()), return: {:ok, self()}, meck_options: [:passthrough]
+      allow :brod.consume_ack(any(), any(), any(), any()), return: :ok, meck_options: [:passthrough]
 
       on_exit(fn ->
         pid = Process.whereis(__MODULE__)
