@@ -123,7 +123,6 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_call(:unsubscribe, _from, state) do
-    Process.unlink(state.subscriber_pid)
     result = :brod.unsubscribe(state.name, state.topic, state.partition)
     {:stop, :normal, result, state}
   end
