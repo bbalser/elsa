@@ -23,7 +23,7 @@ script:
   - mix test.integration
 cache:
   directories:
-    - .plts
+    - .plt
 deploy:
   skip_cleanup: true
   provider: script
