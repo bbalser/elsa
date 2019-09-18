@@ -4,7 +4,7 @@ defmodule Elsa.MixProject do
   def project do
     [
       app: :elsa,
-      version: "0.8.2",
+      version: "0.9.0",
       elixir: "~> 1.8",
       start_permanent: Mix.env() == :prod,
       description: description(),
@@ -26,7 +26,7 @@ defmodule Elsa.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:brod, "~> 3.7"},
+      {:brod, "~> 3.8"},
       {:patiently, "~> 0.2", only: [:dev, :test, :integration]},
       {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
       {:divo_kafka, "~> 0.1.0", only: [:dev, :test, :integration]},
