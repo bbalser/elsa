@@ -19,6 +19,22 @@ defmodule Elsa.Util do
     |> do_with_connection(fun)
   end
 
+  def with_registry(name, function) when is_function(function, 1) do
+    registry = Elsa.Supervisor.registry(name)
+
+    case Process.whereis(registry) do
+      nil -> {:error, "Elsa with name #{name} has not been started correctly"}
+      _pid -> function.(registry)
+    end
+  end
+
+  def with_client(registry, function) when is_function(function, 1) do
+    case Elsa.Registry.whereis_name({registry, :brod_client}) do
+      :undefined -> {:error, "Unable to find brod_client in registry(#{registry})"}
+      pid -> function.(pid)
+    end
+  end
+
   @doc """
   Convert supplied cluster endpoints from common keyword list format to
   brod-compatible tuple.

@@ -29,19 +29,20 @@ defmodule Elsa.Producer do
   """
   @spec produce(endpoints(), topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
   def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
-    name = get_client(opts)
-    client_pid = Process.whereis(name)
+    name = Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
+    supervisor = Elsa.Supervisor.supervisor(name)
+    case Process.whereis(supervisor) do
+      nil ->
+        {:ok, pid} = Elsa.Supervisor.start_link(endpoints: endpoints, name: name, producer: [topic: topic])
+        produce_sync(topic, messages, opts)
+        Process.unlink(pid)
+        Supervisor.stop(pid)
 
-    with :ok <- Elsa.Util.start_client(endpoints, name),
-         :ok <- :brod.start_producer(name, topic, opts),
-         :ok <- produce_sync(topic, messages, Keyword.put(opts, :name, name)),
-         :brod_client.stop_producer(name, topic) do
-      Logger.info("Successfully produced to #{topic}")
-      if client_pid == nil, do: :brod.stop_client(name)
-      :ok
-    else
-      error -> {:error, "Failed to produce: #{inspect(error)}"}
+      _pid ->
+        produce_sync(topic, messages, opts)
     end
+
+    :ok
   end
 
   @doc """
@@ -64,25 +65,20 @@ defmodule Elsa.Producer do
   defp transform_message(message), do: {"", message}
 
   defp do_produce_sync(topic, messages, opts) do
-    do_with_valid_client(opts, fn client ->
-      partitioner = get_partitioner(client, topic, opts)
-      message_chunks = create_message_chunks(partitioner, messages)
+    name = Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
 
-      case produce_sync_while_successful(client, topic, message_chunks) do
-        {:ok, _} -> :ok
-        {:error, reason, chunks_sent} -> failure_message(message_chunks, reason, chunks_sent)
+    Elsa.Util.with_registry(name, fn registry ->
+      with {:ok, partitioner} <- get_partitioner(registry, topic, opts),
+           message_chunks <- create_message_chunks(partitioner, messages) do
+        case produce_sync_while_successful(registry, topic, message_chunks) do
+          {:ok, _} -> :ok
+          {:error, reason, chunks_sent} -> failure_message(message_chunks, reason, chunks_sent)
+        end
       end
     end)
   end
 
-  defp do_with_valid_client(opts, function) when is_function(function, 1) do
-    case get_valid_client(opts) do
-      {:ok, client} -> function.(client)
-      error -> error
-    end
-  end
-
-  defp produce_sync_while_successful(client, topic, message_chunks) do
+  defp produce_sync_while_successful(registry, topic, message_chunks) do
     Enum.reduce_while(message_chunks, {:ok, 0}, fn {partition, chunk}, {:ok, chunks_sent} ->
       total_size = Enum.reduce(chunk, 0, fn {key, value}, acc -> acc + byte_size(key) + byte_size(value) end)
 
@@ -90,7 +86,7 @@ defmodule Elsa.Producer do
         "#{__MODULE__} Sending #{length(chunk)} messages to #{topic}:#{partition} - Size : #{total_size}"
       end)
 
-      case :brod.produce_sync(client, topic, partition, "", chunk) do
+      case brod_produce(registry, topic, partition, chunk) do
         :ok -> {:cont, {:ok, chunks_sent + 1}}
         {:error, reason} -> {:halt, {:error, reason, chunks_sent}}
       end
@@ -114,28 +110,32 @@ defmodule Elsa.Producer do
     {:error, reason_string, failed_messages}
   end
 
-  defp get_client(opts) do
-    Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
+  defp get_partitioner(registry, topic, opts) do
+    Elsa.Util.with_client(registry, fn client ->
+      case Keyword.get(opts, :partition) do
+        nil ->
+          {:ok, partition_num} = :brod_client.get_partitions_count(client, topic)
+          partitioner = Keyword.get(opts, :partitioner, :default)
+          {:ok, fn {key, _value} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end}
+
+        partition ->
+          {:ok, fn _msg -> partition end}
+      end
+    end)
   end
 
-  defp get_valid_client(opts) do
-    client = get_client(opts)
-
-    case Util.client?(client) do
-      true -> {:ok, client}
-      false -> {:error, :client_down}
+  defp brod_produce(registry, topic, partition, messages) do
+    producer = :"producer_#{topic}_#{partition}"
+    case Elsa.Registry.whereis_name({registry, producer})  do
+      :undefined -> {:error, "Elsa Producer for #{topic}:#{partition} not found"}
+      pid -> call_brod_producer(pid, messages)
     end
   end
 
-  defp get_partitioner(client, topic, opts) do
-    case Keyword.get(opts, :partition) do
-      nil ->
-        {:ok, partition_num} = :brod.get_partitions_count(client, topic)
-        partitioner = Keyword.get(opts, :partitioner, :default)
-        fn {key, _value} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end
-
-      partition ->
-        fn _msg -> partition end
+  defp call_brod_producer(pid, messages) do
+    with {:ok, call_ref} <- :brod_producer.produce(pid, "", messages),
+         {:ok, _partition} <- :brod_producer.sync_produce_request(call_ref, :infinity) do
+      :ok
     end
   end
 end
