@@ -41,11 +41,19 @@ defmodule Elsa.Supervisor do
   defp start_producer(_registry, nil), do: []
 
   defp start_producer(registry, args) do
+    case Keyword.keyword?(args) do
+      true -> producer_child_spec(registry, args)
+      false -> Enum.map(args, fn entry -> producer_child_spec(registry, entry) end)
+    end
+  end
+
+  defp producer_child_spec(registry, args) do
+    topic = Keyword.fetch!(args, :topic)
     producer_args =
       args
       |> Keyword.put(:registry, registry)
-      |> Keyword.put(:name, {:via, Elsa.Registry, {registry, :producer_supervisor}})
+      |> Keyword.put(:name, {:via, Elsa.Registry, {registry, :"producer_supervisor_#{topic}"}})
 
-    {Elsa.Producer.Supervisor, producer_args}
+    Supervisor.child_spec({Elsa.Producer.Supervisor, producer_args}, id: :"producer_supervisor_#{topic}")
   end
 end

@@ -69,17 +69,18 @@ defmodule Elsa.Producer do
 
     Elsa.Util.with_registry(name, fn registry ->
       with {:ok, partitioner} <- get_partitioner(registry, topic, opts),
-           message_chunks <- create_message_chunks(partitioner, messages) do
-        case produce_sync_while_successful(registry, topic, message_chunks) do
-          {:ok, _} -> :ok
-          {:error, reason, chunks_sent} -> failure_message(message_chunks, reason, chunks_sent)
-        end
+           message_chunks <- create_message_chunks(partitioner, messages),
+           {:ok, _} <- produce_sync_while_successful(registry, topic, message_chunks) do
+          :ok
+      else
+        {:error, reason, messages_sent, failed_messages} -> failure_message(reason, messages_sent, failed_messages)
+        error_result -> error_result
       end
     end)
   end
 
   defp produce_sync_while_successful(registry, topic, message_chunks) do
-    Enum.reduce_while(message_chunks, {:ok, 0}, fn {partition, chunk}, {:ok, chunks_sent} ->
+    Enum.reduce_while(message_chunks, {:ok, 0}, fn {partition, chunk}, {:ok, messages_sent} ->
       total_size = Enum.reduce(chunk, 0, fn {key, value}, acc -> acc + byte_size(key) + byte_size(value) end)
 
       Logger.debug(fn ->
@@ -87,8 +88,13 @@ defmodule Elsa.Producer do
       end)
 
       case brod_produce(registry, topic, partition, chunk) do
-        :ok -> {:cont, {:ok, chunks_sent + 1}}
-        {:error, reason} -> {:halt, {:error, reason, chunks_sent}}
+        :ok ->
+          {:cont, {:ok, messages_sent + length(chunk)}}
+        {:error, reason} ->
+          failed_messages =
+             Enum.flat_map(message_chunks, fn {_partition, chunk} -> chunk end)
+             |> Enum.drop(messages_sent)
+          {:halt, {:error, reason, messages_sent, failed_messages}}
       end
     end)
   end
@@ -100,13 +106,10 @@ defmodule Elsa.Producer do
     |> Enum.flat_map(fn {partition, chunks} -> Enum.map(chunks, fn chunk -> {partition, chunk} end) end)
   end
 
-  defp failure_message(message_chunks, reason, chunks_sent) do
-    messages_sent = Enum.take(message_chunks, chunks_sent) |> Enum.flat_map(fn {_partition, chunk} -> chunk end)
-
+  defp failure_message(reason, messages_sent, failed_messages) do
     reason_string =
-      "#{length(messages_sent)} messages succeeded before elsa producer failed midway through due to #{inspect(reason)}"
+      "#{messages_sent} messages succeeded before elsa producer failed midway through due to #{inspect(reason)}"
 
-    failed_messages = Enum.drop(message_chunks, chunks_sent) |> Enum.flat_map(fn {_partition, chunk} -> chunk end)
     {:error, reason_string, failed_messages}
   end
 
