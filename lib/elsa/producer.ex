@@ -31,6 +31,7 @@ defmodule Elsa.Producer do
   def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
     name = Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
     supervisor = Elsa.Supervisor.supervisor(name)
+
     case Process.whereis(supervisor) do
       nil ->
         {:ok, pid} = Elsa.Supervisor.start_link(endpoints: endpoints, name: name, producer: [topic: topic])
@@ -71,7 +72,7 @@ defmodule Elsa.Producer do
       with {:ok, partitioner} <- get_partitioner(registry, topic, opts),
            message_chunks <- create_message_chunks(partitioner, messages),
            {:ok, _} <- produce_sync_while_successful(registry, topic, message_chunks) do
-          :ok
+        :ok
       else
         {:error, reason, messages_sent, failed_messages} -> failure_message(reason, messages_sent, failed_messages)
         error_result -> error_result
@@ -90,10 +91,12 @@ defmodule Elsa.Producer do
       case brod_produce(registry, topic, partition, chunk) do
         :ok ->
           {:cont, {:ok, messages_sent + length(chunk)}}
+
         {:error, reason} ->
           failed_messages =
-             Enum.flat_map(message_chunks, fn {_partition, chunk} -> chunk end)
-             |> Enum.drop(messages_sent)
+            Enum.flat_map(message_chunks, fn {_partition, chunk} -> chunk end)
+            |> Enum.drop(messages_sent)
+
           {:halt, {:error, reason, messages_sent, failed_messages}}
       end
     end)
@@ -129,7 +132,8 @@ defmodule Elsa.Producer do
 
   defp brod_produce(registry, topic, partition, messages) do
     producer = :"producer_#{topic}_#{partition}"
-    case Elsa.Registry.whereis_name({registry, producer})  do
+
+    case Elsa.Registry.whereis_name({registry, producer}) do
       :undefined -> {:error, "Elsa Producer for #{topic}:#{partition} not found"}
       pid -> call_brod_producer(pid, messages)
     end

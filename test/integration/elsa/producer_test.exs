@@ -43,8 +43,13 @@ defmodule Elsa.ProducerTest do
 
       Patiently.wait_for!(
         fn ->
-          {:ok, 1, [%Elsa.Message{value: result}]} = Elsa.fetch(@brokers, topic)
-          message == result
+          case Elsa.fetch(@brokers, topic) do
+            {:ok, 1, [%Elsa.Message{value: result}]} ->
+              message == result
+
+            _ ->
+              false
+          end
         end,
         dwell: 1_000,
         max_tries: 20
@@ -142,7 +147,8 @@ defmodule Elsa.ProducerTest do
 
       messages = [{"key", "value"}]
 
-      assert {:error, "Elsa with name elsa_default_client has not been started correctly"} == Elsa.produce_sync("bad-topic", messages)
+      assert {:error, "Elsa with name elsa_default_client has not been started correctly"} ==
+               Elsa.produce_sync("bad-topic", messages)
     end
   end
 

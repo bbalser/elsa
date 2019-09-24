@@ -4,7 +4,6 @@ defmodule Elsa.ProducerTest do
   import TestHelper
 
   describe "produce_sync" do
-
     setup do
       {:ok, registry} = Elsa.Registry.start_link(name: :elsa_registry_test_client)
       Elsa.Registry.register_name({:elsa_registry_test_client, :brod_client}, self())
@@ -13,7 +12,6 @@ defmodule Elsa.ProducerTest do
 
       :ok
     end
-
 
     test "produce_sync fails with returning what messages did not get sent" do
       allow Elsa.Util.client?(any()), return: true, meck_options: [:passthrough]

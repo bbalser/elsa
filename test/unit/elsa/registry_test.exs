@@ -1,5 +1,6 @@
 defmodule Elsa.RegistryTest do
   use ExUnit.Case
+  import TestHelper
 
   @registry :elsa_registry
 
@@ -70,11 +71,5 @@ defmodule Elsa.RegistryTest do
 
     assert_receive :hello
     assert_down(pid)
-  end
-
-  defp assert_down(pid) do
-    ref = Process.monitor(pid)
-    Process.exit(pid, :shutdown)
-    assert_receive {:DOWN, ^ref, _, _, _}
   end
 end

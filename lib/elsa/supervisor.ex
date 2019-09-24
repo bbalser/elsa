@@ -49,6 +49,7 @@ defmodule Elsa.Supervisor do
 
   defp producer_child_spec(registry, args) do
     topic = Keyword.fetch!(args, :topic)
+
     producer_args =
       args
       |> Keyword.put(:registry, registry)
