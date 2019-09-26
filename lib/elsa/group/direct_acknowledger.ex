@@ -1,4 +1,11 @@
 defmodule Elsa.Group.DirectAcknowledger do
+  @moduledoc """
+  Handles acknowledgement of messages directly back to the Kafka
+  cluster rather than the default behavior of routing acks through
+  the interposing group coordinator supplied by brod. This allows for
+  a drain functionality when the group coordinator has been told to
+  exit and thus will no longer route pending acks to the cluster.
+  """
   use GenServer
   require Logger
 
@@ -6,10 +13,22 @@ defmodule Elsa.Group.DirectAcknowledger do
 
   @timeout 5_000
 
+  @doc """
+  Route the offset and generation id for a given topic and partition to
+  the internal callback for acknowledgement.
+  """
+  @spec ack(pid(), term(), Elsa.topic(), Elsa.partition(), Elsa.Group.Manager.generation_id(), integer()) :: :ok
   def ack(server, member_id, topic, partition, generation_id, offset) do
     GenServer.call(server, {:ack, member_id, topic, partition, generation_id, offset})
   end
 
+  @doc """
+  Start the direct acknowledger GenServer and link it to the calling process.
+  Establishes a connection to the kafka cluster based on connection configuration
+  of the brod group coordinator and saves it in the process state for later use
+  when sending acknowledgements.
+  """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     GenServer.start_link(__MODULE__, opts, name: name)

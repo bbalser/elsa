@@ -8,7 +8,6 @@ defmodule Elsa.Producer do
     * If no partition is supplied, the first (zero) partition is chosen.
     * Value may be a single message or a list of messages.
     * If a list of messages is supplied as the value, the key is defaulted to an empty string binary.
-    * If message value is a list, it is expected to be a list of key/value tuples.
     * Partition can be specified by the keyword option `partition:` and an integer corresponding to a specific
       partition, or the keyword option `partitioner:` and the atoms `:md5` or `:random`. The atoms
       correspond to partitioner functions that will uniformely select a random partition
@@ -17,17 +16,13 @@ defmodule Elsa.Producer do
 
   alias Elsa.Util
 
-  @type hostname :: atom() | String.t()
-  @type portnum :: pos_integer()
-  @type endpoints :: [{hostname(), portnum()}]
-  @type topic :: String.t()
-
   @doc """
   Write the supplied message(s) to the desired topic/partition via an endpoint list and optional named client
   as a one-off operation. Following the completion of the operation, the producer is stopped.
   If no client is supplied, the default named client is chosen.
   """
-  @spec produce(endpoints(), topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
+  @spec produce(Elsa.endpoints(), Elsa.topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) ::
+          :ok
   def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
     name = Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
     supervisor = Elsa.Supervisor.supervisor(name)
@@ -50,7 +45,7 @@ defmodule Elsa.Producer do
   Write the supplied messages to the desired topic/partition via a named client specified as a keyword
   option (via the `name:` key). Messages may be a single message or a list of messages.
   """
-  @spec produce_sync(topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
+  @spec produce_sync(Elsa.topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
   def produce_sync(topic, messages, opts \\ [])
 
   def produce_sync(topic, messages, opts) when is_list(messages) do

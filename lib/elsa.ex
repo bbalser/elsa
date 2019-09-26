@@ -6,6 +6,13 @@ defmodule Elsa do
   produce_sync of message(s) to a topic.
   """
 
+  @type hostname :: atom() | String.t()
+  @type portnum :: pos_integer()
+  @typedoc "endpoints to connect to kafka brokers"
+  @type endpoints :: [{hostname(), portnum()}]
+  @type topic :: String.t()
+  @type partition :: integer()
+
   defdelegate list_topics(endpoints), to: Elsa.Topic, as: :list
 
   defdelegate topic?(endpoints, topic), to: Elsa.Topic, as: :exists?
@@ -42,8 +49,8 @@ defmodule Elsa do
 
     @type kafka_message :: record(:kafka_message, key: term(), value: term(), offset: integer(), ts: integer())
     @type elsa_message :: %Elsa.Message{
-            topic: String.t(),
-            partition: integer(),
+            topic: Elsa.topic(),
+            partition: Elsa.partition(),
             offset: integer(),
             key: term(),
             value: term(),

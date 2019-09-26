@@ -1,14 +1,22 @@
 defmodule Elsa.Group.SubscriberDeadTest do
   use ExUnit.Case
   use Divo
+  import TestHelper
 
   @brokers Application.get_env(:elsa, :brokers)
+
+  setup do
+    {:ok, supervisor} = Elsa.Supervisor.start_link(name: :name1, endpoints: @brokers)
+
+    on_exit(fn ->
+      assert_down(supervisor)
+    end)
+  end
 
   test "dead subscriber" do
     {:ok, pid} =
       Elsa.Group.Supervisor.start_link(
         name: :name1,
-        brokers: @brokers,
         group: "group1",
         topics: ["elsa-topic"],
         handler: Test.BasicHandler,
@@ -55,8 +63,9 @@ defmodule Elsa.Group.SubscriberDeadTest do
   end
 
   defp kill_worker(partition) do
-    [{worker_pid, _value}] = Registry.lookup(:elsa_registry_name1, :"worker_elsa-topic_#{partition}")
+    worker_pid = Elsa.Registry.whereis_name({:elsa_registry_name1, :"worker_elsa-topic_#{partition}"})
     Process.exit(worker_pid, :kill)
+
     assert false == Process.alive?(worker_pid)
   end
 end

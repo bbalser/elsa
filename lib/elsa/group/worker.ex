@@ -153,9 +153,10 @@ defmodule Elsa.Group.Worker do
       {:error, reason} ->
         Logger.warn(
           "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
-          inspect(reason)
+            inspect(reason)
           }"
         )
+
         Process.sleep(@subscribe_delay)
         subscribe(state, retries - 1)
 

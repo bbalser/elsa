@@ -15,25 +15,18 @@ defmodule Elsa.Group.Manager do
 
   @behaviour :brod_group_member
 
-  @type hostname :: atom() | String.t()
-  @type portnum :: pos_integer()
-
-  @type topic :: String.t()
   @type group :: String.t()
-  @type partition :: pos_integer()
   @type generation_id :: pos_integer()
 
   @typedoc "Module that implements the Elsa.Consumer.MessageHandler behaviour"
   @type handler :: module()
 
   @typedoc "Function called for each new assignment"
-  @type assignment_received_handler :: (group(), topic(), partition(), generation_id() -> :ok | {:error, term()})
+  @type assignment_received_handler ::
+          (group(), Elsa.topic(), Elsa.partition(), generation_id() -> :ok | {:error, term()})
 
   @typedoc "Function called for when assignments have been revoked"
   @type assignments_revoked_handler :: (() -> :ok)
-
-  @typedoc "endpoints to connect to kafka brokers"
-  @type endpoints :: [{hostname(), portnum()}]
 
   @typedoc "Minimum bytes to fetch in batch of messages: default = 0"
   @type min_bytes :: non_neg_integer()
@@ -74,9 +67,9 @@ defmodule Elsa.Group.Manager do
   @typedoc "keyword list of config values to start elsa consumer"
   @type start_config :: [
           name: atom(),
-          endpoints: endpoints(),
+          endpoints: Elsa.endpoints(),
           group: group(),
-          topics: [topic()],
+          topics: [Elsa.topic()],
           assignment_received_handler: assignment_received_handler(),
           assignments_revoked_handler: assignments_revoked_handler(),
           handler: handler(),
@@ -112,7 +105,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger the assignment of workers to a given topic and partition
   """
-  @spec assignments_received(pid(), term(), integer(), [tuple()]) :: :ok
+  @spec assignments_received(pid(), term(), generation_id(), [tuple()]) :: :ok
   def assignments_received(pid, group_member_id, generation_id, assignments) do
     GenServer.call(pid, {:process_assignments, group_member_id, generation_id, assignments})
   end
@@ -129,7 +122,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: :ok
+  @spec ack(String.t(), Elsa.topic(), Elsa.partition(), generation_id(), integer()) :: :ok
   def ack(name, topic, partition, generation_id, offset) do
     case direct_ack?(name) do
       false ->
@@ -139,7 +132,7 @@ defmodule Elsa.Group.Manager do
       true ->
         case :ets.lookup(table_name(name), :assignments) do
           [{:assignments, member_id, assigned_generation_id}] when assigned_generation_id == generation_id ->
-            direct_acknowledger = {:via, Registry, {registry(name), Elsa.Group.DirectAcknowledger}}
+            direct_acknowledger = {:via, Elsa.Registry, {registry(name), Elsa.Group.DirectAcknowledger}}
             Elsa.Group.DirectAcknowledger.ack(direct_acknowledger, member_id, topic, partition, generation_id, offset)
 
           _ ->
@@ -155,9 +148,14 @@ defmodule Elsa.Group.Manager do
   end
 
   @doc """
-  Trigger acknowldgement of processed messages back to the cluster.
+  Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), %{topic: String.t(), partition: integer(), generation_id: integer(), offset: integer()}) :: :ok
+  @spec ack(String.t(), %{
+          topic: Elsa.topic(),
+          partition: Elsa.partition(),
+          generation_id: generation_id(),
+          offset: integer()
+        }) :: :ok
   def ack(name, %{topic: topic, partition: partition, generation_id: generation_id, offset: offset}) do
     ack(name, topic, partition, generation_id, offset)
   end

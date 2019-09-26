@@ -2,6 +2,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
   use ExUnit.Case
   use Divo
   import AsyncAssertion
+  import TestHelper
 
   defmodule MessageHandler do
     use Elsa.Consumer.MessageHandler
@@ -15,13 +16,20 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
   @group "group-1a"
   @topic "topic-1a"
 
+  setup do
+    {:ok, supervisor} = Elsa.Supervisor.start_link(name: :test_direct_acker, endpoints: @endpoints)
+
+    on_exit(fn ->
+      assert_down(supervisor)
+    end)
+  end
+
   test "direct acknowledger ack over privately managed connection" do
     :ok = Elsa.create_topic(@endpoints, @topic)
 
     {:ok, _elsa_sup_pid} =
       Elsa.Group.Supervisor.start_link(
         name: :test_direct_acker,
-        endpoints: @endpoints,
         group: @group,
         topics: [@topic],
         handler: MessageHandler,

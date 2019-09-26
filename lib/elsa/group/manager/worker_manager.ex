@@ -19,7 +19,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   Retrieve the generation id, used in tracking assignments of workers to topic/partition,
   from the worker state map.
   """
-  @spec get_generation_id(map(), String.t(), integer()) :: integer()
+  @spec get_generation_id(map(), Elsa.topic(), Elsa.partition()) :: integer()
   def get_generation_id(workers, topic, partition) do
     Map.get(workers, {topic, partition})
     |> Map.get(:generation_id)
@@ -29,7 +29,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   Update the current offset for a given worker with respect to messages consumed
   from its topic/partition.
   """
-  @spec update_offset(map(), String.t(), integer(), integer()) :: map() | no_return()
+  @spec update_offset(map(), Elsa.topic(), Elsa.partition(), integer()) :: map() | no_return()
   def update_offset(workers, topic, partition, offset) do
     Map.update!(workers, {topic, partition}, fn worker -> %{worker | latest_offset: offset + 1} end)
   end

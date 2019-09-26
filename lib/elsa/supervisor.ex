@@ -1,14 +1,40 @@
 defmodule Elsa.Supervisor do
+  @moduledoc """
+  Top-level supervisor that orchestrates all other components
+  of the Elsa library. Allows for a single point of integration
+  into your application supervision tree and configuration by way
+  of a series of nested keyword lists
+
+  Components not needed by a running application (if your application
+  _only_ consumes messages from Kafka and never producers back to it)
+  can be safely omitted from the configuration.
+  """
   use Supervisor
 
+  @doc """
+  Defines a name for locating the Elsa Registry process.
+  """
+  @spec registry(String.t()) :: atom()
   def registry(name) do
     :"elsa_registry_#{name}"
   end
 
+  @doc """
+  Defines a name for locating the primary supervisor.
+  """
+  @spec supervisor(String.t()) :: atom()
   def supervisor(name) do
     :"elsa_supervisor_#{name}"
   end
 
+  @doc """
+  Starts the top-level Elsa supervisor and links it to the
+  current process.
+  Starts a brod client and a custom process registry by default
+  and then conditionally starts and takes supervision of any
+  brod group-based consumers or producer processes defined.
+  """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(args) do
     name = Keyword.fetch!(args, :name)
     Supervisor.start_link(__MODULE__, args, name: supervisor(name))
