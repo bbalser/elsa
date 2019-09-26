@@ -112,7 +112,7 @@ defmodule Elsa.Group.Worker do
 
       {:continue, new_handler_state} ->
         offset = transformed_messages |> List.last() |> Map.get(:offset)
-        :brod.consume_ack(state.name, topic, partition, offset)
+        :ok = Elsa.Group.Consumer.ack(state.name, topic, partition, offset)
         {:noreply, %{state | handler_state: new_handler_state}}
     end
   end
@@ -149,22 +149,17 @@ defmodule Elsa.Group.Worker do
   defp subscribe(state, retries) do
     opts = determine_subscriber_opts(state)
 
-    registry = registry(state.name)
-    consumer = :"consumer_#{state.topic}_#{state.partition}"
-    consumer_pid = Elsa.Registry.whereis_name({registry, consumer})
-
-    case :brod_consumer.subscribe(consumer_pid, self(), opts) do
+    case Elsa.Group.Consumer.subscribe(state.name, state.topic, state.partition, opts) do
       {:error, reason} ->
         Logger.warn(
           "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
-            inspect(reason)
+          inspect(reason)
           }"
         )
-
         Process.sleep(@subscribe_delay)
         subscribe(state, retries - 1)
 
-      :ok ->
+      {:ok, consumer_pid} ->
         Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
         {:ok, consumer_pid}
     end

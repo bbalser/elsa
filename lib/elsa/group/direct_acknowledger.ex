@@ -2,6 +2,8 @@ defmodule Elsa.Group.DirectAcknowledger do
   use GenServer
   require Logger
 
+  import Elsa.Supervisor, only: [registry: 1]
+
   @timeout 5_000
 
   def ack(server, member_id, topic, partition, generation_id, offset) do
@@ -23,7 +25,8 @@ defmodule Elsa.Group.DirectAcknowledger do
   end
 
   def handle_continue(:connect, state) do
-    with {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(state.client, state.group),
+    with brod_client <- Elsa.Registry.whereis_name({registry(state.client), :brod_client}),
+         {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(brod_client, state.group),
          {:ok, connection} <- :kpro.connect(endpoint, conn_config) do
       Logger.debug(fn -> "#{__MODULE__}: Coordinator available for group #{state.group} on client #{state.client}" end)
       {:noreply, Map.put(state, :connection, connection)}
@@ -48,7 +51,7 @@ defmodule Elsa.Group.DirectAcknowledger do
 
     with {:ok, response} <- :brod_utils.request_sync(state.connection, request, @timeout),
          :ok <- parse_response(response) do
-      :brod.consume_ack(state.client, topic, partition, offset)
+      :ok = Elsa.Group.Consumer.ack(state.client, topic, partition, offset)
       {:reply, :ok, state}
     else
       {:error, reason} -> {:stop, reason, state}

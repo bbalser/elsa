@@ -86,7 +86,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
       config: state.config
     ]
 
-    supervisor = {:via, Registry, {registry(state.name), :worker_supervisor}}
+    supervisor = {:via, Elsa.Registry, {registry(state.name), :worker_supervisor}}
     {:ok, worker_pid} = DynamicSupervisor.start_child(supervisor, {Elsa.Group.Worker, init_args})
     ref = Process.monitor(worker_pid)
 

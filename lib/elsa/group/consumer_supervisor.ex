@@ -1,8 +1,6 @@
 defmodule Elsa.Group.ConsumerSupervisor do
   use Supervisor
 
-  import Elsa.Supervisor, only: [registry: 1]
-
   def start_link(args) do
     registry = Keyword.fetch!(args, :registry)
     topic = Keyword.fetch!(args, :topic)

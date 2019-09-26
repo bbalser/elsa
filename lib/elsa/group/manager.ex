@@ -89,7 +89,6 @@ defmodule Elsa.Group.Manager do
     The running state of the consumer group manager process.
     """
     defstruct [
-      :brokers,
       :name,
       :group,
       :topics,
@@ -176,7 +175,6 @@ defmodule Elsa.Group.Manager do
     Process.flag(:trap_exit, true)
 
     state = %State{
-      brokers: Keyword.get_lazy(opts, :brokers, fn -> Keyword.fetch!(opts, :endpoints) end),
       group: Keyword.fetch!(opts, :group),
       name: Keyword.fetch!(opts, :name),
       topics: Keyword.fetch!(opts, :topics),
@@ -239,8 +237,7 @@ defmodule Elsa.Group.Manager do
     case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-        # TODO can't call brod client
-        :ok = :brod.consume_ack(state.name, topic, partition, offset)
+        :ok = Elsa.Group.Consumer.ack(state.name, topic, partition, offset)
         new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
         {:noreply, %{state | workers: new_workers}}
 
@@ -307,7 +304,7 @@ defmodule Elsa.Group.Manager do
         nil
 
       true ->
-        name = {:via, Registry, {registry(state.name), Elsa.Group.DirectAcknowledger}}
+        name = {:via, Elsa.Registry, {registry(state.name), Elsa.Group.DirectAcknowledger}}
 
         {:ok, direct_acknowledger_pid} =
           Elsa.Group.DirectAcknowledger.start_link(name: name, client: state.name, group: state.group)
