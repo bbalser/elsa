@@ -8,7 +8,7 @@ defmodule Elsa.Group.Manager do
   use GenServer
   require Logger
   import Record, only: [defrecord: 2, extract: 2]
-  import Elsa.Group.Supervisor, only: [registry: 1]
+  import Elsa.Supervisor, only: [registry: 1]
   alias Elsa.Group.Manager.WorkerManager
 
   defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
@@ -169,7 +169,7 @@ defmodule Elsa.Group.Manager do
   @spec start_link(start_config()) :: GenServer.on_start()
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
-    GenServer.start_link(__MODULE__, opts, name: {:via, Registry, {registry(name), __MODULE__}})
+    GenServer.start_link(__MODULE__, opts, name: {:via, Elsa.Registry, {registry(name), __MODULE__}})
   end
 
   def init(opts) do
@@ -197,12 +197,10 @@ defmodule Elsa.Group.Manager do
   end
 
   def handle_continue(:start_coordinator, state) do
-    :ok = Elsa.Util.start_client(state.brokers, state.name)
-
     {:ok, group_coordinator_pid} =
       :brod_group_coordinator.start_link(state.name, state.group, state.topics, state.config, __MODULE__, self())
 
-    Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)
+    Elsa.Registry.register_name({registry(state.name), :brod_group_coordinator}, group_coordinator_pid)
 
     {:noreply,
      %{
@@ -241,6 +239,7 @@ defmodule Elsa.Group.Manager do
     case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
+        # TODO can't call brod client
         :ok = :brod.consume_ack(state.name, topic, partition, offset)
         new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
         {:noreply, %{state | workers: new_workers}}
@@ -264,6 +263,15 @@ defmodule Elsa.Group.Manager do
 
   def handle_info({:EXIT, _from, reason}, state) do
     wait_and_stop(reason, state)
+  end
+
+  def terminate(reason, %{group_coordinator_pid: group_coordinator_pid} = state) do
+    Logger.info("#{__MODULE__} : Terminating #{state.name}")
+    WorkerManager.stop_all_workers(state.workers)
+
+    if Process.alive?(group_coordinator_pid) do
+      Process.exit(group_coordinator_pid, reason)
+    end
   end
 
   defp call_lifecycle_assignment_received(state, assignments, generation_id) do

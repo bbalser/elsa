@@ -9,7 +9,7 @@ defmodule Elsa.Group.Worker do
   use GenServer, restart: :temporary
   require Logger
 
-  import Elsa.Group.Supervisor, only: [registry: 1]
+  import Elsa.Supervisor, only: [registry: 1]
   import Record, only: [defrecord: 2, extract: 2]
 
   defrecord :kafka_message_set, extract(:kafka_message_set, from_lib: "brod/include/brod.hrl")
@@ -70,7 +70,7 @@ defmodule Elsa.Group.Worker do
     Process.put(:elsa_partition, state.partition)
     Process.put(:elsa_generation_id, state.generation_id)
 
-    Registry.register(registry(state.name), :"worker_#{state.topic}_#{state.partition}", nil)
+    Elsa.Registry.register_name({registry(state.name), :"worker_#{state.topic}_#{state.partition}"}, self())
 
     {:ok, handler_state} = state.handler.init(state.handler_init_args)
 
@@ -78,8 +78,7 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_continue(:subscribe, state) do
-    with :ok <- :brod.start_consumer(state.name, state.topic, state.config),
-         {:ok, pid} <- subscribe(state) do
+    with {:ok, pid} <- subscribe(state) do
       Process.monitor(pid)
       {:noreply, %{state | subscriber_pid: pid}}
     else
@@ -150,7 +149,11 @@ defmodule Elsa.Group.Worker do
   defp subscribe(state, retries) do
     opts = determine_subscriber_opts(state)
 
-    case :brod.subscribe(state.name, self(), state.topic, state.partition, opts) do
+    registry = registry(state.name)
+    consumer = :"consumer_#{state.topic}_#{state.partition}"
+    consumer_pid = Elsa.Registry.whereis_name({registry, consumer})
+
+    case :brod_consumer.subscribe(consumer_pid, self(), opts) do
       {:error, reason} ->
         Logger.warn(
           "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
@@ -161,9 +164,9 @@ defmodule Elsa.Group.Worker do
         Process.sleep(@subscribe_delay)
         subscribe(state, retries - 1)
 
-      {:ok, subscriber_pid} ->
+      :ok ->
         Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
-        {:ok, subscriber_pid}
+        {:ok, consumer_pid}
     end
   end
 

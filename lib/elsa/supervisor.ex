@@ -22,7 +22,8 @@ defmodule Elsa.Supervisor do
       [
         {Elsa.Registry, name: registry},
         start_client(args),
-        start_producer(registry, Keyword.get(args, :producer))
+        start_producer(registry, Keyword.get(args, :producer)),
+        start_group_consumer(name, registry, Keyword.get(args, :group_consumer))
       ]
       |> List.flatten()
 
@@ -36,6 +37,17 @@ defmodule Elsa.Supervisor do
 
     {Elsa.Wrapper,
      mfa: {:brod_client, :start_link, [endpoints, name, config]}, register: {registry(name), :brod_client}}
+  end
+
+  defp start_group_consumer(_name, _registry, nil), do: []
+
+  defp start_group_consumer(name, registry, args) do
+    group_consumer_args =
+      args
+      |> Keyword.put(:registry, registry)
+      |> Keyword.put(:name, name)
+
+    {Elsa.Group.Supervisor, group_consumer_args}
   end
 
   defp start_producer(_registry, nil), do: []

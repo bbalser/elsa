@@ -4,7 +4,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   processes by the consumer group manager.
   """
   import Record, only: [defrecord: 2, extract: 2]
-  import Elsa.Group.Supervisor, only: [registry: 1]
+  import Elsa.Supervisor, only: [registry: 1]
 
   defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
 
