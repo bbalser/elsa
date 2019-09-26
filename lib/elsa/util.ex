@@ -23,7 +23,7 @@ defmodule Elsa.Util do
   Retrieves the appropriate registry for the given value and validates it exists.
   Executes the function with the registry name if it successfully locates one.
   """
-  @spec with_registry(atom(), (atom() -> term())) :: term() | {:error, String.t()}
+  @spec with_registry(String.t(), (atom() -> term())) :: term() | {:error, String.t()}
   def with_registry(name, function) when is_function(function, 1) do
     registry = Elsa.Supervisor.registry(name)
 

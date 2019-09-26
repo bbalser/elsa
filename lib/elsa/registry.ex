@@ -43,7 +43,7 @@ defmodule Elsa.Registry do
   @doc """
   Select all records within the registry and return them as a list.
   """
-  @spec select_all(atom()) :: [pid()]
+  @spec select_all(atom() | :ets.tid()) :: [tuple()]
   def select_all(registry) do
     :ets.tab2list(registry)
   end
