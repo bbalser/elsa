@@ -2,62 +2,75 @@ defmodule Elsa.Group.ConsumerTest do
   use ExUnit.Case
   use Divo
   import AsyncAssertion
+  import TestHelper
   require Logger
 
-  @brokers Application.get_env(:elsa, :brokers)
+  @brokers [localhost: 9092]
+
+  setup do
+    {:ok, supervisor} = Elsa.Supervisor.start_link(name: :name1, endpoints: @brokers)
+
+    on_exit(fn ->
+      assert_down(supervisor)
+    end)
+  end
 
   test "Elsa.Consumer will hand messages to the handler with state" do
+    topic = "consumer-test1"
+    Elsa.create_topic(@brokers, topic, partitions: 2)
+
     {:ok, pid} =
       Elsa.Group.Supervisor.start_link(
         name: :name1,
-        endpoints: @brokers,
         group: "group1",
-        topics: ["elsa-topic"],
+        topics: [topic],
         handler: Testing.ExampleMessageHandlerWithState,
         handler_init_args: %{pid: self()},
         config: [begin_offset: :earliest]
       )
 
-    send_messages(["message1", "message2"])
+    send_messages(topic, ["message1", "message2"])
 
-    assert_receive {:message, %{topic: "elsa-topic", partition: 0, offset: _, key: "", value: "message1"}}, 5_000
-    assert_receive {:message, %{topic: "elsa-topic", partition: 1, offset: _, key: "", value: "message2"}}, 5_000
+    assert_receive {:message, %{topic: topic, partition: 0, offset: _, key: "", value: "message1"}}, 5_000
+    assert_receive {:message, %{topic: topic, partition: 1, offset: _, key: "", value: "message2"}}, 5_000
     Supervisor.stop(pid, :normal)
   end
 
   test "Elsa.Consumer will hand messages to the handler without state" do
+    topic = "consumer-test2"
+    Elsa.create_topic(@brokers, topic)
+
     Agent.start_link(fn -> [] end, name: :test_message_store)
 
     {:ok, pid} =
       Elsa.Group.Supervisor.start_link(
         name: :name1,
-        brokers: @brokers,
-        topics: ["elsa-topic"],
+        topics: [topic],
         group: "group1",
         handler: Testing.ExampleMessageHandlerWithoutState,
         config: [begin_offset: :earliest]
       )
 
-    send_messages(["message2"])
+    send_messages(topic, ["message2"])
 
     assert_async 40, 500, fn ->
       messages = Agent.get(:test_message_store, fn s -> s end)
       assert 1 == length(messages)
-      assert match?(%{topic: "elsa-topic", partition: 0, key: "", value: "message2"}, List.first(messages))
+      assert match?(%{topic: topic, partition: 0, key: "", value: "message2"}, List.first(messages))
     end
 
     Supervisor.stop(pid)
   end
 
-  defp send_messages(messages) do
-    :brod.start_link_client([{'localhost', 9092}], :test_client)
-    :brod.start_producer(:test_client, "elsa-topic", [])
+  defp send_messages(topic, messages) do
+    :brod.start_link_client(@brokers, :test_client)
+    :brod.start_producer(:test_client, topic, [])
 
     messages
     |> Enum.with_index()
     |> Enum.each(fn {msg, index} ->
       partition = rem(index, 2)
-      :brod.produce_sync(:test_client, "elsa-topic", partition, "", msg)
+      :brod.produce_sync(:test_client, topic, partition, "", msg)
     end)
   end
 end

@@ -1,4 +1,18 @@
 defmodule Elsa.Wrapper do
+  @moduledoc """
+  Provides a supervisable wrapper for the Elsa supervision
+  tree to manage brod producers and consumers. Provides
+  convenience functions for starting producer and consumer
+  processes directly without the default supervisors brod
+  interposes between them and the application.
+
+  By taking over supervision of the processes directly interacting
+  with Kafka by way of a brod client, these processes can be
+  registered independently from the client process so in the event
+  of the client dropping its connection, the record of what
+  processes should be producing or consuming from what topics and
+  partitions can be immediately reconstructed instead of being dropped.
+  """
   use GenServer
   require Logger
 

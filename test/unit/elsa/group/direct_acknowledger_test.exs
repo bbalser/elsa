@@ -16,13 +16,15 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   describe "ack/6 - happy path" do
     setup do
+      allow Elsa.Registry.whereis_name(any()), return: @client
+
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
 
       allow :kpro.connect(any(), any()), return: {:ok, :connection}
       allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
       allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, %{responses: []}}
-      allow :brod.consume_ack(any(), any(), any(), any()), return: :ok
+      allow Elsa.Group.Consumer.ack(any(), any(), any(), any()), return: :ok
 
       {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
       on_exit(fn -> wait(pid) end)
@@ -31,6 +33,8 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
     end
 
     test "creates connection to group coordinator" do
+      allow Elsa.Registry.whereis_name(any()), return: @client
+
       assert_async(fn ->
         assert_called :brod_client.get_group_coordinator(@client, @group)
         assert_called :kpro.connect(:group_coordinator_endpoint, :group_coordinator_config)
@@ -52,6 +56,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   describe "ack/6 - exception paths" do
     test "dies when unable to find group_coordinator" do
+      allow Elsa.Registry.whereis_name(any()), return: @client
       allow :brod_client.get_group_coordinator(any(), any()), return: {:error, :something_went_wrong}
 
       {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
@@ -61,6 +66,8 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
     end
 
     test "retries to connect to group coordinator when coordinator_not_available error" do
+      allow Elsa.Registry.whereis_name(any()), return: @client
+
       allow :brod_client.get_group_coordinator(any(), any()),
         seq: [{:error, [error_code: :coordinator_not_available]}, {:error, :something_went_wrong}]
 
@@ -73,6 +80,8 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
     end
 
     test "dies when unable to connection to group coordinator" do
+      allow Elsa.Registry.whereis_name(any()), return: @client
+
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
 
@@ -87,6 +96,8 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   describe "bad responses from ack/6" do
     setup do
+      allow Elsa.Registry.whereis_name(any()), return: @client
+
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
 

@@ -1,15 +1,38 @@
 defmodule Elsa.Registry do
+  @moduledoc """
+  Implements a custom version of the Registry
+  for Elsa, allowing the registration of shared
+  processes like brod clients as well as processes
+  started under brod supervision.
+
+  Saves the process identifier-to-name key/value pairs
+  to ETS.
+  """
   use GenServer
   require Logger
 
+  @doc """
+  Register the pid of a process to the registry under
+  a given name.
+  """
+  @spec register_name({atom(), term()}, pid()) :: :ok
   def register_name({registry, key}, pid) do
     GenServer.call(registry, {:register, key, pid})
   end
 
+  @doc """
+  De-register the process name from its associated pid
+  within the registry.
+  """
+  @spec unregister_name({atom(), term()}) :: :ok
   def unregister_name({registry, key}) do
     GenServer.call(registry, {:unregister, key})
   end
 
+  @doc """
+  Lookup a pid from within the registry by name.
+  """
+  @spec whereis_name({atom(), term()}) :: pid() | :undefined
   def whereis_name({registry, key}) do
     case :ets.lookup(registry, key) do
       [{^key, pid}] -> pid
@@ -17,10 +40,19 @@ defmodule Elsa.Registry do
     end
   end
 
+  @doc """
+  Select all records within the registry and return them as a list.
+  """
+  @spec select_all(atom()) :: [pid()]
   def select_all(registry) do
     :ets.tab2list(registry)
   end
 
+  @doc """
+  Wraps the Kernel module `send/2` function with a safe call to
+  ensure the receiving process is defined.
+  """
+  @spec send({atom(), term()}, term()) :: term()
   def send({registry, key}, msg) do
     case whereis_name({registry, key}) do
       :undefined -> :erlang.error(:badarg, [{registry, key}, msg])
@@ -28,6 +60,12 @@ defmodule Elsa.Registry do
     end
   end
 
+  @doc """
+  Start the Elsa registery process and link it to the current process.
+  Creates the process registry table in ETS and traps exits during the
+  init process.
+  """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(args) do
     name = Keyword.fetch!(args, :name)
     GenServer.start_link(__MODULE__, args, name: name)
