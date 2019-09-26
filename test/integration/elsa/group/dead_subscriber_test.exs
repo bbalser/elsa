@@ -53,7 +53,7 @@ defmodule Elsa.Group.SubscriberDeadTest do
   end
 
   defp send_messages(partition, messages) do
-    :brod.start_link_client([{'localhost', 9092}], :test_client)
+    :brod.start_link_client(@brokers, :test_client)
     :brod.start_producer(:test_client, "elsa-topic", [])
 
     messages

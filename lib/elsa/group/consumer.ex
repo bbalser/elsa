@@ -5,14 +5,14 @@ defmodule Elsa.Group.Consumer do
   """
   import Elsa.Supervisor, only: [registry: 1]
 
-  @type name :: atom()
+  @type name :: atom() | String.t()
   @type offset :: integer() | String.t()
 
   @doc """
   Retrieve the process id of a consumer registered to the
   Elsa Registry and subscribes to it.
   """
-  @spec subscribe(atom(), Elsa.topic(), Elsa.partition(), term()) :: :ok | {:error, term()}
+  @spec subscribe(name(), Elsa.topic(), Elsa.partition(), term()) :: {:ok, pid()} | {:error, term()}
   def subscribe(name, topic, partition, opts) do
     pid = get_consumer(name, topic, partition)
 
@@ -27,7 +27,7 @@ defmodule Elsa.Group.Consumer do
   Elsa Registry and performs a consume-ack of the messages
   ready to be read off the topic.
   """
-  @spec ack(atom(), Elsa.topic(), Elsa.partition(), offset()) :: :ok
+  @spec ack(name(), Elsa.topic(), Elsa.partition(), offset()) :: :ok
   def ack(name, topic, partition, offset) do
     pid = get_consumer(name, topic, partition)
     :brod_consumer.ack(pid, offset)

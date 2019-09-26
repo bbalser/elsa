@@ -14,7 +14,7 @@ defmodule Elsa.Supervisor do
   @doc """
   Defines a name for locating the Elsa Registry process.
   """
-  @spec registry(String.t()) :: atom()
+  @spec registry(String.t() | atom()) :: atom()
   def registry(name) do
     :"elsa_registry_#{name}"
   end
@@ -22,7 +22,7 @@ defmodule Elsa.Supervisor do
   @doc """
   Defines a name for locating the primary supervisor.
   """
-  @spec supervisor(String.t()) :: atom()
+  @spec supervisor(String.t() | atom()) :: atom()
   def supervisor(name) do
     :"elsa_supervisor_#{name}"
   end
