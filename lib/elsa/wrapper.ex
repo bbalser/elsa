@@ -61,7 +61,9 @@ defmodule Elsa.Wrapper do
   end
 
   def terminate(reason, %{pid: pid} = state) do
-    unless Process.alive?(pid) == false, do: kill(pid, reason, state.kill_timeout)
+    with result when not not result <- Process.alive?(pid) do
+      kill(pid, reason, state.kill_timeout)
+    end
 
     reason
   end
