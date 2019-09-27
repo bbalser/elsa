@@ -28,6 +28,7 @@ defmodule Elsa.Wrapper do
 
     state = %{
       mfa: Keyword.fetch!(args, :mfa),
+      started: :erlang.system_time(:milli_seconds),
       delay: Keyword.get(args, :delay, @default_delay),
       kill_timeout: Keyword.get(args, :kill_timeout, @default_kill_timeout),
       register: Keyword.get(args, :register, :no_register)
@@ -42,8 +43,12 @@ defmodule Elsa.Wrapper do
     {:ok, Map.put(state, :pid, pid)}
   end
 
-  def handle_info({:EXIT, pid, reason}, %{pid: pid, delay: delay} = state) do
-    Process.sleep(delay)
+  def handle_info({:EXIT, pid, reason}, %{pid: pid, delay: delay, started: started} = state) do
+    lifetime = :erlang.system_time(:milli_seconds) - started
+
+    max(delay - lifetime, 0)
+    |> Process.sleep()
+
     {:stop, reason, state}
   end
 
