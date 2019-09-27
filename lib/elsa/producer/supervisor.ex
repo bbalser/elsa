@@ -30,21 +30,22 @@ defmodule Elsa.Producer.Supervisor do
     children =
       0..(partitions - 1)
       |> Enum.map(fn partition ->
-        name = :"producer_#{topic}_#{partition}"
-        child_spec(brod_client, topic, partition, config, {registry, name})
+        child_spec(registry, brod_client, topic, partition, config)
       end)
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  defp child_spec(brod_client, topic, partition, config, registration) do
+  defp child_spec(registry, brod_client, topic, partition, config) do
+    name = :"producer_#{topic}_#{partition}"
+
     wrapper_args = [
       mfa: {:brod_producer, :start_link, [brod_client, topic, partition, config]},
-      register: registration
+      register: {registry, name}
     ]
 
     %{
-      id: :"#{topic}-#{partition}",
+      id: name,
       start: {Elsa.Wrapper, :start_link, [wrapper_args]}
     }
   end

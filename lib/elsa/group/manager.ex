@@ -126,7 +126,7 @@ defmodule Elsa.Group.Manager do
   def ack(name, topic, partition, generation_id, offset) do
     case direct_ack?(name) do
       false ->
-        group_manager = {:via, Registry, {registry(name), __MODULE__}}
+        group_manager = {:via, Elsa.Registry, {registry(name), __MODULE__}}
         GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
 
       true ->
