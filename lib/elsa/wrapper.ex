@@ -34,13 +34,24 @@ defmodule Elsa.Wrapper do
       register: Keyword.get(args, :register, :no_register)
     }
 
-    {:ok, pid} = start(state)
+    case start(state) do
+      {:ok, pid} ->
+        unless state.register == :no_register do
+          Elsa.Registry.register_name(state.register, pid)
+        end
 
-    unless state.register == :no_register do
-      Elsa.Registry.register_name(state.register, pid)
+        {:ok, Map.put(state, :pid, pid)}
+
+      {:error, reason} ->
+        Logger.error(
+          "#{__MODULE__}:#{inspect(self())} : wrapped process #{inspect(state.mfa)} failed to init for reason #{
+            inspect(reason)
+          }"
+        )
+
+        Process.send_after(self(), {:EXIT, self(), :init_failed}, 2_000)
+        {:ok, state}
     end
-
-    {:ok, Map.put(state, :pid, pid)}
   end
 
   def handle_info({:EXIT, pid, reason}, %{pid: pid, delay: delay, started: started} = state) do
@@ -52,6 +63,8 @@ defmodule Elsa.Wrapper do
     {:stop, reason, state}
   end
 
+  def handle_info({:EXIT, _pid, :init_failed}, state), do: {:stop, :init_failed, state}
+
   def handle_info(message, state) do
     Logger.info(
       "#{__MODULE__}:#{inspect(self())} : received invalid message #{inspect(message)}, current state: #{inspect(state)}"
@@ -61,12 +74,12 @@ defmodule Elsa.Wrapper do
   end
 
   def terminate(reason, %{pid: pid} = state) do
-    with result when not not result <- Process.alive?(pid) do
-      kill(pid, reason, state.kill_timeout)
-    end
+    if Process.alive?(pid), do: kill(pid, reason, state.kill_timeout)
 
     reason
   end
+
+  def terminate(reason, _state), do: reason
 
   defp kill(pid, reason, timeout) do
     Process.exit(pid, reason)

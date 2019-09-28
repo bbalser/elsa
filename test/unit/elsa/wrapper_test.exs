@@ -24,6 +24,19 @@ defmodule Elsa.WrapperTest do
     end
   end
 
+  defmodule NoStartServer do
+    use GenServer
+
+    def start_link() do
+      GenServer.start_link(__MODULE__, [])
+    end
+
+    def init(_args) do
+      Process.sleep(100)
+      {:stop, :failure}
+    end
+  end
+
   setup do
     Process.flag(:trap_exit, true)
     {:ok, pid} = Elsa.Registry.start_link(name: @registry)
@@ -77,5 +90,12 @@ defmodule Elsa.WrapperTest do
     assert :agent_state = Agent.get({:via, Elsa.Registry, {@registry, :agent}}, fn s -> s end)
 
     assert_down(pid)
+  end
+
+  test "restarts if wrapped process fails to init" do
+    {:ok, pid} = Elsa.Wrapper.start_link(mfa: {NoStartServer, :start_link, []})
+
+    assert_receive {:EXIT, ^pid, :init_failed}, 5_000
+    assert false == Process.alive?(pid)
   end
 end
