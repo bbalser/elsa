@@ -267,6 +267,7 @@ defmodule Elsa.Group.Manager do
     if group_coordinator_pid != nil && Process.alive?(group_coordinator_pid) do
       Process.exit(group_coordinator_pid, reason)
     end
+
     reason
   end
 

@@ -40,6 +40,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
     assert_async(fn ->
       assert 1 == get_committed_offsets(:test_direct_acker, @group, @topic, 0)
     end)
+
     Supervisor.stop(elsa_sup_pid)
   end
 
