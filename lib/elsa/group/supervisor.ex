@@ -10,16 +10,16 @@ defmodule Elsa.Group.Supervisor do
   import Elsa.Supervisor, only: [registry: 1]
 
   def start_link(init_arg \\ []) do
-    name = Keyword.fetch!(init_arg, :name)
-    Supervisor.start_link(__MODULE__, init_arg, name: {:via, Elsa.Registry, {registry(name), __MODULE__}})
+    connection = Keyword.fetch!(init_arg, :connection)
+    Supervisor.start_link(__MODULE__, init_arg, name: {:via, Elsa.Registry, {registry(connection), __MODULE__}})
   end
 
   @impl Supervisor
   def init(init_arg) do
-    name = Keyword.fetch!(init_arg, :name)
+    connection = Keyword.fetch!(init_arg, :connection)
     topics = Keyword.fetch!(init_arg, :topics)
     config = Keyword.get(init_arg, :config, [])
-    registry = registry(name)
+    registry = registry(connection)
 
     children =
       [

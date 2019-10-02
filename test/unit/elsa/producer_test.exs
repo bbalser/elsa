@@ -14,13 +14,12 @@ defmodule Elsa.ProducerTest do
     end
 
     test "produce_sync fails with returning what messages did not get sent" do
-      allow Elsa.Util.client?(any()), return: true, meck_options: [:passthrough]
       allow :brod_producer.produce(any(), any(), any()), seq: [:ok, {:error, :some_reason}, :ok]
       allow :brod_producer.sync_produce_request(any(), any()), return: {:ok, 0}
       Elsa.Registry.register_name({:elsa_registry_test_client, :"producer_topic-a_0"}, self())
 
       messages = Enum.map(1..2_000, fn i -> {"", random_string(i)} end)
-      {:error, reason, failed} = Elsa.produce_sync("topic-a", messages, name: :test_client, partition: 0)
+      {:error, reason, failed} = Elsa.produce(:test_client, "topic-a", messages, connection: :test_client, partition: 0)
 
       assert reason == "1331 messages succeeded before elsa producer failed midway through due to :some_reason"
       assert 2000 - 1331 == length(failed)

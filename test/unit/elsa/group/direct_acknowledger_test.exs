@@ -5,7 +5,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   alias Elsa.Group.DirectAcknowledger
 
-  @client :brod_client
+  @connection :brod_client
   @group "group1"
   @moduletag :capture_log
 
@@ -16,7 +16,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   describe "ack/6 - happy path" do
     setup do
-      allow Elsa.Registry.whereis_name(any()), return: @client
+      allow Elsa.Registry.whereis_name(any()), return: @connection
 
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
@@ -26,17 +26,17 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
       allow :brod_utils.request_sync(any(), any(), any()), return: {:ok, %{responses: []}}
       allow Elsa.Group.Consumer.ack(any(), any(), any(), any()), return: :ok
 
-      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, connection: @connection, group: @group)
       on_exit(fn -> wait(pid) end)
 
       [pid: pid]
     end
 
     test "creates connection to group coordinator" do
-      allow Elsa.Registry.whereis_name(any()), return: @client
+      allow Elsa.Registry.whereis_name(any()), return: @connection
 
       assert_async(fn ->
-        assert_called :brod_client.get_group_coordinator(@client, @group)
+        assert_called :brod_client.get_group_coordinator(@connection, @group)
         assert_called :kpro.connect(:group_coordinator_endpoint, :group_coordinator_config)
       end)
     end
@@ -56,22 +56,22 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   describe "ack/6 - exception paths" do
     test "dies when unable to find group_coordinator" do
-      allow Elsa.Registry.whereis_name(any()), return: @client
+      allow Elsa.Registry.whereis_name(any()), return: @connection
       allow :brod_client.get_group_coordinator(any(), any()), return: {:error, :something_went_wrong}
 
-      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, connection: @connection, group: @group)
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :something_went_wrong}
     end
 
     test "retries to connect to group coordinator when coordinator_not_available error" do
-      allow Elsa.Registry.whereis_name(any()), return: @client
+      allow Elsa.Registry.whereis_name(any()), return: @connection
 
       allow :brod_client.get_group_coordinator(any(), any()),
         seq: [{:error, [error_code: :coordinator_not_available]}, {:error, :something_went_wrong}]
 
-      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, connection: @connection, group: @group)
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :something_went_wrong}, 2_000
@@ -80,14 +80,14 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
     end
 
     test "dies when unable to connection to group coordinator" do
-      allow Elsa.Registry.whereis_name(any()), return: @client
+      allow Elsa.Registry.whereis_name(any()), return: @connection
 
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
 
       allow :kpro.connect(any(), any()), return: {:error, :bad_connection}
 
-      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, connection: @connection, group: @group)
       on_exit(fn -> wait(pid) end)
 
       assert_receive {:EXIT, ^pid, :bad_connection}
@@ -96,7 +96,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
 
   describe "bad responses from ack/6" do
     setup do
-      allow Elsa.Registry.whereis_name(any()), return: @client
+      allow Elsa.Registry.whereis_name(any()), return: @connection
 
       allow :brod_client.get_group_coordinator(any(), any()),
         return: {:ok, {:group_coordinator_endpoint, :group_coordinator_config}}
@@ -104,7 +104,7 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
       allow :kpro.connect(any(), any()), return: {:ok, :connection}
       allow :brod_kafka_request.offset_commit(any(), any()), return: :offset_commit_kafka_request
 
-      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, client: @client, group: @group)
+      {:ok, pid} = DirectAcknowledger.start_link(name: __MODULE__, connection: @connection, group: @group)
       on_exit(fn -> wait(pid) end)
       [pid: pid]
     end

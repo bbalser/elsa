@@ -1,27 +1,21 @@
 defmodule Elsa.Group.SubscriberDeadTest do
   use ExUnit.Case
   use Divo
-  import TestHelper
 
   @brokers Application.get_env(:elsa, :brokers)
 
-  setup do
-    {:ok, supervisor} = Elsa.Supervisor.start_link(name: :name1, endpoints: @brokers)
-
-    on_exit(fn ->
-      assert_down(supervisor)
-    end)
-  end
-
   test "dead subscriber" do
     {:ok, pid} =
-      Elsa.Group.Supervisor.start_link(
-        name: :name1,
-        group: "group1",
-        topics: ["elsa-topic"],
-        handler: Test.BasicHandler,
-        handler_init_args: %{pid: self()},
-        config: [begin_offset: :earliest]
+      Elsa.Supervisor.start_link(
+        connection: :name1,
+        endpoints: @brokers,
+        group_consumer: [
+          group: "group1",
+          topics: ["elsa-topic"],
+          handler: Test.BasicHandler,
+          handler_init_args: %{pid: self()},
+          config: [begin_offset: :earliest]
+        ]
       )
 
     send_messages(0, ["message1"])

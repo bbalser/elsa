@@ -23,7 +23,7 @@ defmodule Elsa.Group.WorkerTest do
       end)
 
       init_args = [
-        name: :test_name,
+        connection: :test_name,
         topic: "test-topic",
         partition: 0,
         generation_id: 5,

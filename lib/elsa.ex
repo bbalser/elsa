@@ -6,6 +6,8 @@ defmodule Elsa do
   produce_sync of message(s) to a topic.
   """
 
+  @typedoc "named connection, must be an atom"
+  @type connection :: atom()
   @type hostname :: atom() | String.t()
   @type portnum :: pos_integer()
   @typedoc "endpoints to connect to kafka brokers"
@@ -21,9 +23,7 @@ defmodule Elsa do
 
   defdelegate delete_topic(endpoints, topic), to: Elsa.Topic, as: :delete
 
-  defdelegate produce(endpoints, topic, messages, opts \\ []), to: Elsa.Producer
-
-  defdelegate produce_sync(topic, messages, opts \\ []), to: Elsa.Producer
+  defdelegate produce(endpoints_or_connection, topic, messages, opts \\ []), to: Elsa.Producer
 
   defdelegate fetch(endpoints, topic, opts \\ []), to: Elsa.Fetch
 

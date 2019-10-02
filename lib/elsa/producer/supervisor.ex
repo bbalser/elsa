@@ -10,8 +10,14 @@ defmodule Elsa.Producer.Supervisor do
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(args) do
-    name = Keyword.fetch!(args, :name)
-    Supervisor.start_link(__MODULE__, args, name: name)
+    registry = Keyword.fetch!(args, :registry)
+    topic = Keyword.fetch!(args, :topic)
+    Supervisor.start_link(__MODULE__, args, name: {:via, Elsa.Registry, {registry, :"producer_supervisor_#{topic}"}})
+  end
+
+  def child_spec(args) do
+    topic = Keyword.fetch!(args, :topic)
+    Supervisor.child_spec(super(args), id: :"producer_supervisor_#{topic}")
   end
 
   @doc """
