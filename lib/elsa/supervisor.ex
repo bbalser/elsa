@@ -12,19 +12,15 @@ defmodule Elsa.Supervisor do
   use Supervisor
 
   @doc """
-  Defines a name for locating the Elsa Registry process.
+  Defines a connection for locating the Elsa Registry process.
   """
   @spec registry(String.t() | atom()) :: atom()
-  def registry(name) do
-    :"elsa_registry_#{name}"
+  def registry(connection) do
+    :"elsa_registry_#{connection}"
   end
 
-  @doc """
-  Defines a name for locating the primary supervisor.
-  """
-  @spec supervisor(String.t() | atom()) :: atom()
-  def supervisor(name) do
-    :"elsa_supervisor_#{name}"
+  def via_name(registry, name) do
+    {:via, Elsa.Registry, {registry, name}}
   end
 
   @doc """
@@ -36,20 +32,25 @@ defmodule Elsa.Supervisor do
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(args) do
-    name = Keyword.fetch!(args, :name)
-    Supervisor.start_link(__MODULE__, args, name: supervisor(name))
+    opts =
+      case Keyword.has_key?(args, :name) do
+        true -> [name: Keyword.fetch!(args, :name)]
+        false -> []
+      end
+
+    Supervisor.start_link(__MODULE__, args, opts)
   end
 
   def init(args) do
-    name = Keyword.fetch!(args, :name)
-    registry = registry(name)
+    connection = Keyword.fetch!(args, :connection)
+    registry = registry(connection)
 
     children =
       [
         {Elsa.Registry, name: registry},
         start_client(args),
         start_producer(registry, Keyword.get(args, :producer)),
-        start_group_consumer(name, registry, Keyword.get(args, :group_consumer))
+        start_group_consumer(connection, registry, Keyword.get(args, :group_consumer))
       ]
       |> List.flatten()
 
@@ -57,21 +58,22 @@ defmodule Elsa.Supervisor do
   end
 
   defp start_client(args) do
-    name = Keyword.fetch!(args, :name)
+    connection = Keyword.fetch!(args, :connection)
     endpoints = Keyword.fetch!(args, :endpoints)
     config = Keyword.get(args, :config, [])
 
     {Elsa.Wrapper,
-     mfa: {:brod_client, :start_link, [endpoints, name, config]}, register: {registry(name), :brod_client}}
+     mfa: {:brod_client, :start_link, [endpoints, connection, config]}, register: {registry(connection), :brod_client}}
   end
 
-  defp start_group_consumer(_name, _registry, nil), do: []
+  defp start_group_consumer(_connection, _registry, nil), do: []
 
-  defp start_group_consumer(name, registry, args) do
+  defp start_group_consumer(connection, registry, args) do
     group_consumer_args =
       args
       |> Keyword.put(:registry, registry)
-      |> Keyword.put(:name, name)
+      |> Keyword.put(:connection, connection)
+      |> Keyword.put(:name, via_name(registry, Elsa.Group.Supervisor))
 
     {Elsa.Group.Supervisor, group_consumer_args}
   end
@@ -86,13 +88,10 @@ defmodule Elsa.Supervisor do
   end
 
   defp producer_child_spec(registry, args) do
-    topic = Keyword.fetch!(args, :topic)
-
     producer_args =
       args
       |> Keyword.put(:registry, registry)
-      |> Keyword.put(:name, {:via, Elsa.Registry, {registry, :"producer_supervisor_#{topic}"}})
 
-    Supervisor.child_spec({Elsa.Producer.Supervisor, producer_args}, id: :"producer_supervisor_#{topic}")
+    {Elsa.Producer.Supervisor, producer_args}
   end
 end

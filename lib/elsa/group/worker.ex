@@ -23,7 +23,7 @@ defmodule Elsa.Group.Worker do
     The running state of the worker process.
     """
     defstruct [
-      :name,
+      :connection,
       :topic,
       :partition,
       :generation_id,
@@ -55,7 +55,7 @@ defmodule Elsa.Group.Worker do
 
   def init(init_args) do
     state = %State{
-      name: Keyword.fetch!(init_args, :name),
+      connection: Keyword.fetch!(init_args, :connection),
       topic: Keyword.fetch!(init_args, :topic),
       partition: Keyword.fetch!(init_args, :partition),
       generation_id: Keyword.fetch!(init_args, :generation_id),
@@ -65,12 +65,12 @@ defmodule Elsa.Group.Worker do
       config: Keyword.fetch!(init_args, :config)
     }
 
-    Process.put(:elsa_name, state.name)
+    Process.put(:elsa_connection, state.connection)
     Process.put(:elsa_topic, state.topic)
     Process.put(:elsa_partition, state.partition)
     Process.put(:elsa_generation_id, state.generation_id)
 
-    Elsa.Registry.register_name({registry(state.name), :"worker_#{state.topic}_#{state.partition}"}, self())
+    Elsa.Registry.register_name({registry(state.connection), :"worker_#{state.topic}_#{state.partition}"}, self())
 
     {:ok, handler_state} = state.handler.init(state.handler_init_args)
 
@@ -112,7 +112,7 @@ defmodule Elsa.Group.Worker do
 
       {:continue, new_handler_state} ->
         offset = transformed_messages |> List.last() |> Map.get(:offset)
-        :ok = Elsa.Group.Consumer.ack(state.name, topic, partition, offset)
+        :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
         {:noreply, %{state | handler_state: new_handler_state}}
     end
   end
@@ -122,7 +122,7 @@ defmodule Elsa.Group.Worker do
   end
 
   def handle_call(:unsubscribe, _from, state) do
-    result = :brod.unsubscribe(state.name, state.topic, state.partition)
+    result = :brod.unsubscribe(state.connection, state.topic, state.partition)
     {:stop, :normal, result, state}
   end
 
@@ -135,7 +135,7 @@ defmodule Elsa.Group.Worker do
   end
 
   defp ack_messages(topic, partition, offset, state) do
-    Elsa.Group.Manager.ack(state.name, topic, partition, state.generation_id, offset)
+    Elsa.Group.Manager.ack(state.connection, topic, partition, state.generation_id, offset)
 
     offset
   end
@@ -149,7 +149,7 @@ defmodule Elsa.Group.Worker do
   defp subscribe(state, retries) do
     opts = determine_subscriber_opts(state)
 
-    case Elsa.Group.Consumer.subscribe(state.name, state.topic, state.partition, opts) do
+    case Elsa.Group.Consumer.subscribe(state.connection, state.topic, state.partition, opts) do
       {:error, reason} ->
         Logger.warn(
           "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{

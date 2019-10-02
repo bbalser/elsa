@@ -82,11 +82,11 @@ defmodule Elsa.Group.Manager.WorkerManager do
       begin_offset: assignment.begin_offset,
       handler: state.handler,
       handler_init_args: state.handler_init_args,
-      name: state.name,
+      connection: state.connection,
       config: state.config
     ]
 
-    supervisor = {:via, Elsa.Registry, {registry(state.name), :worker_supervisor}}
+    supervisor = {:via, Elsa.Registry, {registry(state.connection), :worker_supervisor}}
     {:ok, worker_pid} = DynamicSupervisor.start_child(supervisor, {Elsa.Group.Worker, init_args})
     ref = Process.monitor(worker_pid)
 

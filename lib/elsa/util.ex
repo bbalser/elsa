@@ -24,11 +24,11 @@ defmodule Elsa.Util do
   Executes the function with the registry name if it successfully locates one.
   """
   @spec with_registry(atom() | String.t(), (atom() -> term())) :: term() | {:error, String.t()}
-  def with_registry(name, function) when is_function(function, 1) do
-    registry = Elsa.Supervisor.registry(name)
+  def with_registry(connection, function) when is_function(function, 1) do
+    registry = Elsa.Supervisor.registry(connection)
 
     case Process.whereis(registry) do
-      nil -> {:error, "Elsa with name #{name} has not been started correctly"}
+      nil -> {:error, "Elsa with connection #{connection} has not been started correctly"}
       _pid -> function.(registry)
     end
   end

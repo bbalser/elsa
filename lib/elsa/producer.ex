@@ -4,7 +4,7 @@ defmodule Elsa.Producer do
   @moduledoc """
   Defines functions to write messages to topics based on either a list of endpoints or a named client.
   All produce functions support the following options:
-    * An existing named client process to handle the request can be specified by the keyword option `name:`.
+    * An existing named client process to handle the request can be specified by the keyword option `connection:`.
     * If no partition is supplied, the first (zero) partition is chosen.
     * Value may be a single message or a list of messages.
     * If a list of messages is supplied as the value, the key is defaulted to an empty string binary.
@@ -17,53 +17,49 @@ defmodule Elsa.Producer do
   alias Elsa.Util
 
   @doc """
-  Write the supplied message(s) to the desired topic/partition via an endpoint list and optional named client
-  as a one-off operation. Following the completion of the operation, the producer is stopped.
+  Write the supplied message(s) to the desired topic/partition via an endpoint list and optional named client.
   If no client is supplied, the default named client is chosen.
   """
-  @spec produce(Elsa.endpoints(), Elsa.topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) ::
-          :ok
-  def produce(endpoints, topic, messages, opts \\ []) when is_list(endpoints) do
-    name = Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
-    supervisor = Elsa.Supervisor.supervisor(name)
+  @spec produce(
+          Elsa.endpoints() | Elsa.connection(),
+          Elsa.topic(),
+          {term(), term()} | term() | [{term(), term()}] | [term()],
+          keyword()
+        ) :: :ok
+  def produce(endpoints_or_connection, topic, messages, opts \\ [])
 
-    case Process.whereis(supervisor) do
+  def produce(endpoints, topic, messages, opts) when is_list(endpoints) do
+    connection = Keyword.get_lazy(opts, :connection, &Elsa.default_client/0)
+    registry = Elsa.Supervisor.registry(connection)
+
+    case Process.whereis(registry) do
       nil ->
-        {:ok, pid} = Elsa.Supervisor.start_link(endpoints: endpoints, name: name, producer: [topic: topic])
-        produce_sync(topic, messages, opts)
+        {:ok, pid} = Elsa.Supervisor.start_link(endpoints: endpoints, connection: connection, producer: [topic: topic])
+        produce(connection, topic, messages, opts)
         Process.unlink(pid)
         Supervisor.stop(pid)
 
       _pid ->
-        produce_sync(topic, messages, opts)
+        produce(connection, topic, messages, opts)
     end
 
     :ok
   end
 
-  @doc """
-  Write the supplied messages to the desired topic/partition via a named client specified as a keyword
-  option (via the `name:` key). Messages may be a single message or a list of messages.
-  """
-  @spec produce_sync(Elsa.topic(), {term(), term()} | term() | [{term(), term()}] | [term()], keyword()) :: :ok
-  def produce_sync(topic, messages, opts \\ [])
-
-  def produce_sync(topic, messages, opts) when is_list(messages) do
+  def produce(connection, topic, messages, opts) when is_atom(connection) and is_list(messages) do
     transformed_messages = Enum.map(messages, &transform_message/1)
-    do_produce_sync(topic, transformed_messages, opts)
+    do_produce_sync(connection, topic, transformed_messages, opts)
   end
 
-  def produce_sync(topic, message, opts) do
-    do_produce_sync(topic, [transform_message(message)], opts)
+  def produce(connection, topic, message, opts) when is_atom(connection) do
+    do_produce_sync(connection, topic, [transform_message(message)], opts)
   end
 
   defp transform_message({key, value}), do: {key, value}
   defp transform_message(message), do: {"", message}
 
-  defp do_produce_sync(topic, messages, opts) do
-    name = Keyword.get_lazy(opts, :name, &Elsa.default_client/0)
-
-    Elsa.Util.with_registry(name, fn registry ->
+  defp do_produce_sync(connection, topic, messages, opts) do
+    Elsa.Util.with_registry(connection, fn registry ->
       with {:ok, partitioner} <- get_partitioner(registry, topic, opts),
            message_chunks <- create_message_chunks(partitioner, messages),
            {:ok, _} <- produce_sync_while_successful(registry, topic, message_chunks) do

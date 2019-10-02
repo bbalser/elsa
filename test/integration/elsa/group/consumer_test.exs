@@ -7,26 +7,21 @@ defmodule Elsa.Group.ConsumerTest do
 
   @brokers [localhost: 9092]
 
-  setup do
-    {:ok, supervisor} = Elsa.Supervisor.start_link(name: :name1, endpoints: @brokers)
-
-    on_exit(fn ->
-      assert_down(supervisor)
-    end)
-  end
-
   test "Elsa.Consumer will hand messages to the handler with state" do
     topic = "consumer-test1"
     Elsa.create_topic(@brokers, topic, partitions: 2)
 
     {:ok, pid} =
-      Elsa.Group.Supervisor.start_link(
-        name: :name1,
-        group: "group1",
-        topics: [topic],
-        handler: Testing.ExampleMessageHandlerWithState,
-        handler_init_args: %{pid: self()},
-        config: [begin_offset: :earliest]
+      Elsa.Supervisor.start_link(
+        connection: :name1,
+        endpoints: @brokers,
+        group_consumer: [
+          group: "group1",
+          topics: [topic],
+          handler: Testing.ExampleMessageHandlerWithState,
+          handler_init_args: %{pid: self()},
+          config: [begin_offset: :earliest]
+        ]
       )
 
     send_messages(topic, ["message1", "message2"])
@@ -43,12 +38,15 @@ defmodule Elsa.Group.ConsumerTest do
     Agent.start_link(fn -> [] end, name: :test_message_store)
 
     {:ok, pid} =
-      Elsa.Group.Supervisor.start_link(
-        name: :name1,
-        topics: [topic],
-        group: "group1",
-        handler: Testing.ExampleMessageHandlerWithoutState,
-        config: [begin_offset: :earliest]
+      Elsa.Supervisor.start_link(
+        connection: :name1,
+        endpoints: @brokers,
+        group_consumer: [
+          topics: [topic],
+          group: "group1",
+          handler: Testing.ExampleMessageHandlerWithoutState,
+          config: [begin_offset: :earliest]
+        ]
       )
 
     send_messages(topic, ["message2"])

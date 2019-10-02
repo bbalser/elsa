@@ -36,7 +36,7 @@ defmodule Elsa.Group.DirectAcknowledger do
 
   def init(opts) do
     state = %{
-      client: Keyword.fetch!(opts, :client),
+      connection: Keyword.fetch!(opts, :connection),
       group: Keyword.fetch!(opts, :group)
     }
 
@@ -44,10 +44,13 @@ defmodule Elsa.Group.DirectAcknowledger do
   end
 
   def handle_continue(:connect, state) do
-    with brod_client <- Elsa.Registry.whereis_name({registry(state.client), :brod_client}),
+    with brod_client <- Elsa.Registry.whereis_name({registry(state.connection), :brod_client}),
          {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(brod_client, state.group),
          {:ok, connection} <- :kpro.connect(endpoint, conn_config) do
-      Logger.debug(fn -> "#{__MODULE__}: Coordinator available for group #{state.group} on client #{state.client}" end)
+      Logger.debug(fn ->
+        "#{__MODULE__}: Coordinator available for group #{state.group} on connection #{state.connection}"
+      end)
+
       {:noreply, Map.put(state, :connection, connection)}
     else
       {:error, reason} when is_list(reason) ->
@@ -70,7 +73,7 @@ defmodule Elsa.Group.DirectAcknowledger do
 
     with {:ok, response} <- :brod_utils.request_sync(state.connection, request, @timeout),
          :ok <- parse_response(response) do
-      :ok = Elsa.Group.Consumer.ack(state.client, topic, partition, offset)
+      :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
       {:reply, :ok, state}
     else
       {:error, reason} -> {:stop, reason, state}

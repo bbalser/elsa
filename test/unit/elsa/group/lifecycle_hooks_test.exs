@@ -17,7 +17,7 @@ defmodule Elsa.Group.LifecycleHooksTest do
     test_pid = self()
 
     state = %{
-      name: :fake_test_name,
+      connection: :fake_test_name,
       workers: :workers,
       group: "group1",
       assignment_received_handler: fn group, topic, partition, generation_id ->
