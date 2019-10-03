@@ -93,9 +93,6 @@ defmodule Elsa.WrapperTest do
   end
 
   test "restarts if wrapped process fails to init" do
-    {:ok, pid} = Elsa.Wrapper.start_link(mfa: {NoStartServer, :start_link, []})
-
-    assert_receive {:EXIT, ^pid, :init_failed}, 5_000
-    assert false == Process.alive?(pid)
+    assert {:error, :failure} == Elsa.Wrapper.start_link(mfa: {NoStartServer, :start_link, []})
   end
 end

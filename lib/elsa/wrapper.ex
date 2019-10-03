@@ -49,8 +49,8 @@ defmodule Elsa.Wrapper do
           }"
         )
 
-        Process.send_after(self(), {:EXIT, self(), :init_failed}, 2_000)
-        {:ok, state}
+        Process.sleep(state.delay)
+        {:stop, reason}
     end
   end
 
@@ -62,8 +62,6 @@ defmodule Elsa.Wrapper do
 
     {:stop, reason, state}
   end
-
-  def handle_info({:EXIT, _pid, :init_failed}, state), do: {:stop, :init_failed, state}
 
   def handle_info(message, state) do
     Logger.info(
