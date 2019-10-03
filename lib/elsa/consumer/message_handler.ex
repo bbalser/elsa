@@ -61,8 +61,8 @@ defmodule Elsa.Consumer.MessageHandler do
         Process.get(:elsa_generation_id)
       end
 
-      def name() do
-        Process.get(:elsa_name)
+      def connection() do
+        Process.get(:elsa_connection)
       end
 
       defoverridable Elsa.Consumer.MessageHandler
