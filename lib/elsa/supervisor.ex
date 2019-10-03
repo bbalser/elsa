@@ -24,11 +24,73 @@ defmodule Elsa.Supervisor do
   end
 
   @doc """
-  Starts the top-level Elsa supervisor and links it to the
-  current process.
+  Starts the top-level Elsa supervisor and links it to the current process.
   Starts a brod client and a custom process registry by default
   and then conditionally starts and takes supervision of any
   brod group-based consumers or producer processes defined.
+
+  ## Options
+
+  * `:endpoints` - Required. Keyword list of kafka brokers. ex. `[localhost: 9092]`
+
+  * `:connection` - Required. Atom used to track kafka connection.
+
+  * `:config` - Optional. Client configuration options passed to brod.
+
+  * `:producer` - Optional. Can be a single producer configuration of multiples in a list.
+
+  * `:group_consumer` - Optional. Group consumer configuration.
+
+
+  ## Producer Config
+
+  * `:topic` - Required. Producer will be started for configured topic.
+
+  * `:config` - Optional. Producer configuration options passed to `brod_producer`.
+
+
+  ## Group Consumer Config
+
+  * `:group` - Required. Name of consumer group.
+
+  * `:topics` - Required. List of topics to subscribe to.
+
+  * `:handler` - Required. Module that implements Elsa.Consumer.MessageHandler behaviour.
+
+  * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
+
+  * `:assignment_received_handler` - Optional. Arity 4 Function that will be called with any partition assignments.
+     Return `:ok` to for assignment to be subscribed to.  Return `{:error, reason}` to stop subscription.
+     Arguments are group, topic, partition, generation_id.
+
+  * `:assignments_revoked_handler` - Optional. Zero arity function that will be called when assignments are revoked.
+    All workers will be shutdown before callback is invoked and must return `:ok`.
+
+  * `:direct_ack` - Optional. Boolean, `true` indicates to bypass `brod_group_coordinator` and ack directly to kafka.
+    Defaults to `false`.
+
+  * `:config` - Optional. Consumer configuration options passed to `brod_consumer`.
+
+
+  ## Example
+
+  ```
+    Elsa.Supervisor.start_link([
+      endpoints: [localhost: 9092],
+      connection: :conn,
+      producer: [topic: "topic1"],
+      group_consumer: [
+        group: "example-group",
+        topics: ["topic1"],
+        handler: ExampleHandler,
+        config: [
+          begin_offset: :earliest,
+          offset_reset_policy: :reset_to_earliest
+        ]
+      ]
+    ])
+  ```
+
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(args) do

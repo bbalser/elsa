@@ -76,7 +76,14 @@ defmodule Elsa.Group.DirectAcknowledger do
       :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
       {:reply, :ok, state}
     else
-      {:error, reason} -> {:stop, reason, state}
+      {:error, reason} ->
+        Logger.error(
+          "#{__MODULE__} : Received error when attempting to ack offset for #{topic}:#{partition}, reason: #{
+            inspect(reason)
+          }"
+        )
+
+        {:stop, reason, state}
     end
   end
 
