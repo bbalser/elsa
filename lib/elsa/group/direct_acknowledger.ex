@@ -46,12 +46,12 @@ defmodule Elsa.Group.DirectAcknowledger do
   def handle_continue(:connect, state) do
     with brod_client <- Elsa.Registry.whereis_name({registry(state.connection), :brod_client}),
          {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(brod_client, state.group),
-         {:ok, connection} <- :kpro.connect(endpoint, conn_config) do
+         {:ok, kafka_connection} <- :kpro.connect(endpoint, conn_config) do
       Logger.debug(fn ->
         "#{__MODULE__}: Coordinator available for group #{state.group} on connection #{state.connection}"
       end)
 
-      {:noreply, Map.put(state, :connection, connection)}
+      {:noreply, Map.put(state, :kafka_connection, kafka_connection)}
     else
       {:error, reason} when is_list(reason) ->
         case Keyword.get(reason, :error_code) do
@@ -71,7 +71,7 @@ defmodule Elsa.Group.DirectAcknowledger do
   def handle_call({:ack, member_id, topic, partition, generation_id, offset}, _from, state) do
     request = make_request_body(state, member_id, topic, partition, generation_id, offset)
 
-    with {:ok, response} <- :brod_utils.request_sync(state.connection, request, @timeout),
+    with {:ok, response} <- :brod_utils.request_sync(state.kafka_connection, request, @timeout),
          :ok <- parse_response(response) do
       :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
       {:reply, :ok, state}
@@ -111,7 +111,7 @@ defmodule Elsa.Group.DirectAcknowledger do
       topics: topics
     }
 
-    :brod_kafka_request.offset_commit(state.connection, request_body)
+    :brod_kafka_request.offset_commit(state.kafka_connection, request_body)
   end
 
   defp parse_response(response) do
