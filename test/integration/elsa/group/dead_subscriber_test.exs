@@ -6,14 +6,16 @@ defmodule Elsa.Group.SubscriberDeadTest do
 
   test "dead subscriber" do
     {:ok, pid} =
-      Elsa.Group.Supervisor.start_link(
-        name: :name1,
-        brokers: @brokers,
-        group: "group1",
-        topics: ["elsa-topic"],
-        handler: Test.BasicHandler,
-        handler_init_args: %{pid: self()},
-        config: [begin_offset: :earliest]
+      Elsa.Supervisor.start_link(
+        connection: :name1,
+        endpoints: @brokers,
+        group_consumer: [
+          group: "group1",
+          topics: ["elsa-topic"],
+          handler: Test.BasicHandler,
+          handler_init_args: %{pid: self()},
+          config: [begin_offset: :earliest]
+        ]
       )
 
     send_messages(0, ["message1"])
@@ -45,7 +47,7 @@ defmodule Elsa.Group.SubscriberDeadTest do
   end
 
   defp send_messages(partition, messages) do
-    :brod.start_link_client([{'localhost', 9092}], :test_client)
+    :brod.start_link_client(@brokers, :test_client)
     :brod.start_producer(:test_client, "elsa-topic", [])
 
     messages
@@ -55,8 +57,9 @@ defmodule Elsa.Group.SubscriberDeadTest do
   end
 
   defp kill_worker(partition) do
-    [{worker_pid, _value}] = Registry.lookup(:elsa_registry_name1, :"worker_elsa-topic_#{partition}")
+    worker_pid = Elsa.Registry.whereis_name({:elsa_registry_name1, :"worker_elsa-topic_#{partition}"})
     Process.exit(worker_pid, :kill)
+
     assert false == Process.alive?(worker_pid)
   end
 end

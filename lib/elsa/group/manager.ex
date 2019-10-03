@@ -8,32 +8,25 @@ defmodule Elsa.Group.Manager do
   use GenServer
   require Logger
   import Record, only: [defrecord: 2, extract: 2]
-  import Elsa.Group.Supervisor, only: [registry: 1]
+  import Elsa.Supervisor, only: [registry: 1]
   alias Elsa.Group.Manager.WorkerManager
 
   defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
 
   @behaviour :brod_group_member
 
-  @type hostname :: atom() | String.t()
-  @type portnum :: pos_integer()
-
-  @type topic :: String.t()
   @type group :: String.t()
-  @type partition :: pos_integer()
   @type generation_id :: pos_integer()
 
   @typedoc "Module that implements the Elsa.Consumer.MessageHandler behaviour"
   @type handler :: module()
 
   @typedoc "Function called for each new assignment"
-  @type assignment_received_handler :: (group(), topic(), partition(), generation_id() -> :ok | {:error, term()})
+  @type assignment_received_handler ::
+          (group(), Elsa.topic(), Elsa.partition(), generation_id() -> :ok | {:error, term()})
 
   @typedoc "Function called for when assignments have been revoked"
   @type assignments_revoked_handler :: (() -> :ok)
-
-  @typedoc "endpoints to connect to kafka brokers"
-  @type endpoints :: [{hostname(), portnum()}]
 
   @typedoc "Minimum bytes to fetch in batch of messages: default = 0"
   @type min_bytes :: non_neg_integer()
@@ -73,10 +66,10 @@ defmodule Elsa.Group.Manager do
 
   @typedoc "keyword list of config values to start elsa consumer"
   @type start_config :: [
-          name: atom(),
-          endpoints: endpoints(),
+          connection: Elsa.connection(),
+          endpoints: Elsa.endpoints(),
           group: group(),
-          topics: [topic()],
+          topics: [Elsa.topic()],
           assignment_received_handler: assignment_received_handler(),
           assignments_revoked_handler: assignments_revoked_handler(),
           handler: handler(),
@@ -89,8 +82,7 @@ defmodule Elsa.Group.Manager do
     The running state of the consumer group manager process.
     """
     defstruct [
-      :brokers,
-      :name,
+      :connection,
       :group,
       :topics,
       :config,
@@ -113,7 +105,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger the assignment of workers to a given topic and partition
   """
-  @spec assignments_received(pid(), term(), integer(), [tuple()]) :: :ok
+  @spec assignments_received(pid(), term(), generation_id(), [tuple()]) :: :ok
   def assignments_received(pid, group_member_id, generation_id, assignments) do
     GenServer.call(pid, {:process_assignments, group_member_id, generation_id, assignments})
   end
@@ -130,17 +122,17 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), String.t(), integer(), integer(), integer()) :: :ok
-  def ack(name, topic, partition, generation_id, offset) do
-    case direct_ack?(name) do
+  @spec ack(String.t(), Elsa.topic(), Elsa.partition(), generation_id(), integer()) :: :ok
+  def ack(connection, topic, partition, generation_id, offset) do
+    case direct_ack?(connection) do
       false ->
-        group_manager = {:via, Registry, {registry(name), __MODULE__}}
+        group_manager = {:via, Elsa.Registry, {registry(connection), __MODULE__}}
         GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
 
       true ->
-        case :ets.lookup(table_name(name), :assignments) do
+        case :ets.lookup(table_name(connection), :assignments) do
           [{:assignments, member_id, assigned_generation_id}] when assigned_generation_id == generation_id ->
-            direct_acknowledger = {:via, Registry, {registry(name), Elsa.Group.DirectAcknowledger}}
+            direct_acknowledger = {:via, Elsa.Registry, {registry(connection), Elsa.Group.DirectAcknowledger}}
             Elsa.Group.DirectAcknowledger.ack(direct_acknowledger, member_id, topic, partition, generation_id, offset)
 
           _ ->
@@ -156,11 +148,16 @@ defmodule Elsa.Group.Manager do
   end
 
   @doc """
-  Trigger acknowldgement of processed messages back to the cluster.
+  Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), %{topic: String.t(), partition: integer(), generation_id: integer(), offset: integer()}) :: :ok
-  def ack(name, %{topic: topic, partition: partition, generation_id: generation_id, offset: offset}) do
-    ack(name, topic, partition, generation_id, offset)
+  @spec ack(String.t(), %{
+          topic: Elsa.topic(),
+          partition: Elsa.partition(),
+          generation_id: generation_id(),
+          offset: integer()
+        }) :: :ok
+  def ack(connection, %{topic: topic, partition: partition, generation_id: generation_id, offset: offset}) do
+    ack(connection, topic, partition, generation_id, offset)
   end
 
   @doc """
@@ -168,17 +165,16 @@ defmodule Elsa.Group.Manager do
   """
   @spec start_link(start_config()) :: GenServer.on_start()
   def start_link(opts) do
-    name = Keyword.fetch!(opts, :name)
-    GenServer.start_link(__MODULE__, opts, name: {:via, Registry, {registry(name), __MODULE__}})
+    connection = Keyword.fetch!(opts, :connection)
+    GenServer.start_link(__MODULE__, opts, name: {:via, Elsa.Registry, {registry(connection), __MODULE__}})
   end
 
   def init(opts) do
     Process.flag(:trap_exit, true)
 
     state = %State{
-      brokers: Keyword.get_lazy(opts, :brokers, fn -> Keyword.fetch!(opts, :endpoints) end),
       group: Keyword.fetch!(opts, :group),
-      name: Keyword.fetch!(opts, :name),
+      connection: Keyword.fetch!(opts, :connection),
       topics: Keyword.fetch!(opts, :topics),
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
       assignment_received_handler: Keyword.get(opts, :assignment_received_handler, fn _g, _t, _p, _gen -> :ok end),
@@ -189,7 +185,7 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
-    table_name = table_name(state.name)
+    table_name = table_name(state.connection)
     :ets.new(table_name, [:set, :protected, :named_table])
     :ets.insert(table_name, {:direct_ack, Keyword.get(opts, :direct_ack, false)})
 
@@ -197,12 +193,10 @@ defmodule Elsa.Group.Manager do
   end
 
   def handle_continue(:start_coordinator, state) do
-    :ok = Elsa.Util.start_client(state.brokers, state.name)
-
     {:ok, group_coordinator_pid} =
-      :brod_group_coordinator.start_link(state.name, state.group, state.topics, state.config, __MODULE__, self())
+      :brod_group_coordinator.start_link(state.connection, state.group, state.topics, state.config, __MODULE__, self())
 
-    Registry.put_meta(registry(state.name), :group_coordinator, group_coordinator_pid)
+    Elsa.Registry.register_name({registry(state.connection), :brod_group_coordinator}, group_coordinator_pid)
 
     {:noreply,
      %{
@@ -221,7 +215,7 @@ defmodule Elsa.Group.Manager do
         {:stop, reason, {:error, reason}, state}
 
       :ok ->
-        table_name = table_name(state.name)
+        table_name = table_name(state.connection)
         :ets.insert(table_name, {:assignments, member_id, generation_id})
 
         new_workers = start_workers(state, generation_id, assignments)
@@ -233,7 +227,7 @@ defmodule Elsa.Group.Manager do
     Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
     :ok = apply(state.assignments_revoked_handler, [])
-    :ets.delete(table_name(state.name), :assignments)
+    :ets.delete(table_name(state.connection), :assignments)
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
@@ -241,7 +235,7 @@ defmodule Elsa.Group.Manager do
     case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-        :ok = :brod.consume_ack(state.name, topic, partition, offset)
+        :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
         new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
         {:noreply, %{state | workers: new_workers}}
 
@@ -266,6 +260,17 @@ defmodule Elsa.Group.Manager do
     wait_and_stop(reason, state)
   end
 
+  def terminate(reason, %{group_coordinator_pid: group_coordinator_pid} = state) do
+    Logger.info("#{__MODULE__} : Terminating #{state.connection}")
+    WorkerManager.stop_all_workers(state.workers)
+
+    if group_coordinator_pid != nil && Process.alive?(group_coordinator_pid) do
+      Process.exit(group_coordinator_pid, reason)
+    end
+
+    reason
+  end
+
   defp call_lifecycle_assignment_received(state, assignments, generation_id) do
     Enum.reduce_while(assignments, :ok, fn brod_received_assignment(topic: topic, partition: partition), :ok ->
       case apply(state.assignment_received_handler, [state.group, topic, partition, generation_id]) do
@@ -286,29 +291,29 @@ defmodule Elsa.Group.Manager do
     {:stop, reason, state}
   end
 
-  defp direct_ack?(name) do
-    case :ets.lookup(table_name(name), :direct_ack) do
+  defp direct_ack?(connection) do
+    case :ets.lookup(table_name(connection), :direct_ack) do
       [{:direct_ack, result}] -> result
       _ -> false
     end
   end
 
   defp create_direct_acknowledger(state) do
-    case direct_ack?(state.name) do
+    case direct_ack?(state.connection) do
       false ->
         nil
 
       true ->
-        name = {:via, Registry, {registry(state.name), Elsa.Group.DirectAcknowledger}}
+        name = {:via, Elsa.Registry, {registry(state.connection), Elsa.Group.DirectAcknowledger}}
 
         {:ok, direct_acknowledger_pid} =
-          Elsa.Group.DirectAcknowledger.start_link(name: name, client: state.name, group: state.group)
+          Elsa.Group.DirectAcknowledger.start_link(name: name, connection: state.connection, group: state.group)
 
         direct_acknowledger_pid
     end
   end
 
-  defp table_name(name) do
-    :"#{name}_elsa_table"
+  defp table_name(connection) do
+    :"#{connection}_elsa_table"
   end
 end

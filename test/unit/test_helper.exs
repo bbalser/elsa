@@ -26,3 +26,13 @@ defmodule AsyncAssertion do
       assert_async(retries - 1, delay, fun)
   end
 end
+
+defmodule TestHelper do
+  import ExUnit.Assertions
+
+  def assert_down(pid) do
+    ref = Process.monitor(pid)
+    Process.exit(pid, :shutdown)
+    assert_receive {:DOWN, ^ref, _, _, _}
+  end
+end

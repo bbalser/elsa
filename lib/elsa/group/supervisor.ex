@@ -7,58 +7,36 @@ defmodule Elsa.Group.Supervisor do
   """
   use Supervisor, restart: :transient
 
+  import Elsa.Supervisor, only: [registry: 1]
+
   def start_link(init_arg \\ []) do
-    name = Keyword.fetch!(init_arg, :name)
-    supervisor_name = supervisor_name(name)
-    Supervisor.start_link(__MODULE__, init_arg, name: supervisor_name)
+    connection = Keyword.fetch!(init_arg, :connection)
+    Supervisor.start_link(__MODULE__, init_arg, name: {:via, Elsa.Registry, {registry(connection), __MODULE__}})
   end
 
   @impl Supervisor
   def init(init_arg) do
-    name = Keyword.fetch!(init_arg, :name)
-    registry_name = registry(name)
+    connection = Keyword.fetch!(init_arg, :connection)
+    topics = Keyword.fetch!(init_arg, :topics)
+    config = Keyword.get(init_arg, :config, [])
+    registry = registry(connection)
 
-    children = [
-      {Registry, [keys: :unique, name: registry_name]},
-      {DynamicSupervisor, [strategy: :one_for_one, name: {:via, Registry, {registry_name, :worker_supervisor}}]},
-      {Elsa.Group.Manager, manager_args(init_arg)}
-    ]
+    children =
+      [
+        {DynamicSupervisor, [strategy: :one_for_one, name: {:via, Elsa.Registry, {registry, :worker_supervisor}}]},
+        consumer_supervisors(registry, topics, config),
+        {Elsa.Group.Manager, manager_args(init_arg)}
+      ]
+      |> List.flatten()
 
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  @doc """
-  Provide a name-spaced process registry identifier for
-  differentiating processes between consumer groups.
-  """
-  @spec registry(String.t()) :: atom()
-  def registry(name) do
-    :"elsa_registry_#{name}"
-  end
-
-  @doc """
-  Ensures descendant workers have unsubscribed and unlinked from supervision
-  before gracefully terminating the supervisor process and all remaining children.
-  """
-  @spec stop(String.t()) :: :ok
-  def stop(name) do
-    supervisor_name = supervisor_name(name)
-
-    Supervisor.which_children(supervisor_name)
-    |> Enum.map(fn {module, manager_pid, _, _} ->
-      case module do
-        Elsa.Group.Manager ->
-          Elsa.Group.Manager.assignments_revoked(manager_pid)
-
-        _ ->
-          :ok
-      end
+  defp consumer_supervisors(registry, topics, config) do
+    Enum.map(topics, fn topic ->
+      {Elsa.Group.ConsumerSupervisor, [registry: registry, topic: topic, config: config]}
     end)
-
-    Supervisor.stop(supervisor_name, {:shutdown, "completed work for this consumer group"})
   end
-
-  defp supervisor_name(name), do: :"elsa_supervisor_#{name}"
 
   defp manager_args(args) do
     args

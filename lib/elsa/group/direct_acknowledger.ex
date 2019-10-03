@@ -1,13 +1,34 @@
 defmodule Elsa.Group.DirectAcknowledger do
+  @moduledoc """
+  Handles acknowledgement of messages directly back to the Kafka
+  cluster rather than the default behavior of routing acks through
+  the interposing group coordinator supplied by brod. This allows for
+  a drain functionality when the group coordinator has been told to
+  exit and thus will no longer route pending acks to the cluster.
+  """
   use GenServer
   require Logger
 
+  import Elsa.Supervisor, only: [registry: 1]
+
   @timeout 5_000
 
+  @doc """
+  Route the offset and generation id for a given topic and partition to
+  the internal callback for acknowledgement.
+  """
+  @spec ack(pid(), term(), Elsa.topic(), Elsa.partition(), Elsa.Group.Manager.generation_id(), integer()) :: :ok
   def ack(server, member_id, topic, partition, generation_id, offset) do
     GenServer.call(server, {:ack, member_id, topic, partition, generation_id, offset})
   end
 
+  @doc """
+  Start the direct acknowledger GenServer and link it to the calling process.
+  Establishes a connection to the kafka cluster based on connection configuration
+  of the brod group coordinator and saves it in the process state for later use
+  when sending acknowledgements.
+  """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     GenServer.start_link(__MODULE__, opts, name: name)
@@ -15,7 +36,7 @@ defmodule Elsa.Group.DirectAcknowledger do
 
   def init(opts) do
     state = %{
-      client: Keyword.fetch!(opts, :client),
+      connection: Keyword.fetch!(opts, :connection),
       group: Keyword.fetch!(opts, :group)
     }
 
@@ -23,9 +44,13 @@ defmodule Elsa.Group.DirectAcknowledger do
   end
 
   def handle_continue(:connect, state) do
-    with {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(state.client, state.group),
+    with brod_client <- Elsa.Registry.whereis_name({registry(state.connection), :brod_client}),
+         {:ok, {endpoint, conn_config}} <- :brod_client.get_group_coordinator(brod_client, state.group),
          {:ok, connection} <- :kpro.connect(endpoint, conn_config) do
-      Logger.debug(fn -> "#{__MODULE__}: Coordinator available for group #{state.group} on client #{state.client}" end)
+      Logger.debug(fn ->
+        "#{__MODULE__}: Coordinator available for group #{state.group} on connection #{state.connection}"
+      end)
+
       {:noreply, Map.put(state, :connection, connection)}
     else
       {:error, reason} when is_list(reason) ->
@@ -48,10 +73,17 @@ defmodule Elsa.Group.DirectAcknowledger do
 
     with {:ok, response} <- :brod_utils.request_sync(state.connection, request, @timeout),
          :ok <- parse_response(response) do
-      :brod.consume_ack(state.client, topic, partition, offset)
+      :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
       {:reply, :ok, state}
     else
-      {:error, reason} -> {:stop, reason, state}
+      {:error, reason} ->
+        Logger.error(
+          "#{__MODULE__} : Received error when attempting to ack offset for #{topic}:#{partition}, reason: #{
+            inspect(reason)
+          }"
+        )
+
+        {:stop, reason, state}
     end
   end
 

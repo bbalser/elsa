@@ -18,16 +18,18 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
   test "direct acknowledger ack over privately managed connection" do
     :ok = Elsa.create_topic(@endpoints, @topic)
 
-    {:ok, _elsa_sup_pid} =
-      Elsa.Group.Supervisor.start_link(
-        name: :test_direct_acker,
+    {:ok, elsa_sup_pid} =
+      Elsa.Supervisor.start_link(
+        connection: :test_direct_acker,
         endpoints: @endpoints,
-        group: @group,
-        topics: [@topic],
-        handler: MessageHandler,
-        direct_ack: true,
-        config: [
-          begin_offset: :earliest
+        group_consumer: [
+          group: @group,
+          topics: [@topic],
+          handler: MessageHandler,
+          direct_ack: true,
+          config: [
+            begin_offset: :earliest
+          ]
         ]
       )
 
@@ -38,6 +40,8 @@ defmodule Elsa.Group.DirectAcknowledgerTest do
     assert_async(fn ->
       assert 1 == get_committed_offsets(:test_direct_acker, @group, @topic, 0)
     end)
+
+    Supervisor.stop(elsa_sup_pid)
   end
 
   defp get_committed_offsets(client, group, topic, partition) do

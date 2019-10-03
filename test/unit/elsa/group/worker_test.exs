@@ -7,10 +7,10 @@ defmodule Elsa.Group.WorkerTest do
 
   describe "handle_info/2" do
     setup do
-      Registry.start_link(keys: :unique, name: Elsa.Group.Supervisor.registry(:test_name))
+      Elsa.Registry.start_link(keys: :unique, name: Elsa.Supervisor.registry(:test_name))
       allow Elsa.Group.Manager.ack(any(), any(), any(), any(), any()), return: :ok
+      allow Elsa.Group.Consumer.ack(any(), any(), any(), any()), return: :ok, meck_options: [:passthrough]
       allow :brod.subscribe(any(), any(), any(), any(), any()), return: {:ok, self()}, meck_options: [:passthrough]
-      allow :brod.consume_ack(any(), any(), any(), any()), return: :ok, meck_options: [:passthrough]
 
       on_exit(fn ->
         pid = Process.whereis(__MODULE__)
@@ -23,7 +23,7 @@ defmodule Elsa.Group.WorkerTest do
       end)
 
       init_args = [
-        name: :test_name,
+        connection: :test_name,
         topic: "test-topic",
         partition: 0,
         generation_id: 5,
@@ -80,7 +80,7 @@ defmodule Elsa.Group.WorkerTest do
       Elsa.Group.Worker.handle_info({:some_pid, messages}, state)
 
       refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
-      assert_called :brod.consume_ack(:test_name, "test-topic", 0, any())
+      assert_called Elsa.Group.Consumer.ack(:test_name, "test-topic", 0, any())
     end
   end
 

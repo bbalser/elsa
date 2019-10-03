@@ -4,7 +4,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   processes by the consumer group manager.
   """
   import Record, only: [defrecord: 2, extract: 2]
-  import Elsa.Group.Supervisor, only: [registry: 1]
+  import Elsa.Supervisor, only: [registry: 1]
 
   defrecord :brod_received_assignment, extract(:brod_received_assignment, from_lib: "brod/include/brod.hrl")
 
@@ -19,7 +19,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   Retrieve the generation id, used in tracking assignments of workers to topic/partition,
   from the worker state map.
   """
-  @spec get_generation_id(map(), String.t(), integer()) :: integer()
+  @spec get_generation_id(map(), Elsa.topic(), Elsa.partition()) :: integer()
   def get_generation_id(workers, topic, partition) do
     Map.get(workers, {topic, partition})
     |> Map.get(:generation_id)
@@ -29,7 +29,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   Update the current offset for a given worker with respect to messages consumed
   from its topic/partition.
   """
-  @spec update_offset(map(), String.t(), integer(), integer()) :: map() | no_return()
+  @spec update_offset(map(), Elsa.topic(), Elsa.partition(), integer()) :: map() | no_return()
   def update_offset(workers, topic, partition, offset) do
     Map.update!(workers, {topic, partition}, fn worker -> %{worker | latest_offset: offset + 1} end)
   end
@@ -82,11 +82,11 @@ defmodule Elsa.Group.Manager.WorkerManager do
       begin_offset: assignment.begin_offset,
       handler: state.handler,
       handler_init_args: state.handler_init_args,
-      name: state.name,
+      connection: state.connection,
       config: state.config
     ]
 
-    supervisor = {:via, Registry, {registry(state.name), :worker_supervisor}}
+    supervisor = {:via, Elsa.Registry, {registry(state.connection), :worker_supervisor}}
     {:ok, worker_pid} = DynamicSupervisor.start_child(supervisor, {Elsa.Group.Worker, init_args})
     ref = Process.monitor(worker_pid)
 

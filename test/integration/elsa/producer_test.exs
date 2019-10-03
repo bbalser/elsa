@@ -2,62 +2,58 @@ defmodule Elsa.ProducerTest do
   use ExUnit.Case
   use Divo
   import Checkov
+  import TestHelper
 
   alias Elsa.Producer
-  alias Elsa.Producer.Manager
   require Elsa.Message
 
   @brokers [{'localhost', 9092}]
+  @moduletag capture_log: true
 
   describe "producer managers" do
     setup do
       topic = "producer-manager-test"
-      client_name = :elsa_producer_test2
+      connection = :elsa_producer_test2
 
       Elsa.create_topic(@brokers, topic)
-      Elsa.Util.start_client(@brokers, client_name)
 
-      client_pid = Process.whereis(client_name)
-
-      manager = [
-        {Manager, [name: :elsa_producer_test2, endpoints: @brokers, topic: topic]}
-      ]
-
-      {:ok, supervisor} = Supervisor.start_link(manager, strategy: :one_for_one)
+      {:ok, supervisor} =
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
 
       on_exit(fn ->
-        Process.exit(supervisor, :normal)
-        Process.exit(client_pid, :normal)
+        assert_down(supervisor)
       end)
 
-      [client_name: client_name, client_pid: client_pid, topic: topic]
+      [connection: connection, topic: topic, registry: Elsa.Supervisor.registry(connection)]
     end
 
-    test "restarts producers when the client is dropped", %{
-      client_name: client_name,
-      client_pid: client_pid,
-      topic: topic
-    } do
+    test "restarts producers when the client is dropped", %{connection: connection, topic: topic, registry: registry} do
       message = "everything's fine here"
+      client_pid = Elsa.Registry.whereis_name({registry, :brod_client})
       Process.exit(client_pid, :kill)
 
       Patiently.wait_for!(
         fn ->
-          Process.alive?(client_pid) == false and Process.whereis(client_name) != nil
+          Process.alive?(client_pid) == false and Process.whereis(connection) != nil
         end,
         dwell: 1_000,
         max_tries: 30
       )
 
-      Producer.produce_sync(topic, message, name: client_name)
+      Producer.produce(connection, topic, message)
 
       Patiently.wait_for!(
         fn ->
-          {:ok, 1, [%Elsa.Message{value: result}]} = Elsa.fetch(@brokers, topic)
-          message == result
+          case Elsa.fetch(@brokers, topic) do
+            {:ok, 1, [%Elsa.Message{value: result}]} ->
+              message == result
+
+            _ ->
+              false
+          end
         end,
         dwell: 1_000,
-        max_tries: 10
+        max_tries: 20
       )
     end
   end
@@ -65,9 +61,14 @@ defmodule Elsa.ProducerTest do
   describe "preconfigured broker" do
     data_test "produces to topic" do
       Elsa.create_topic(@brokers, topic, partitions: num_partitions)
-      Manager.start_link(name: String.to_atom(topic), topic: topic, endpoints: @brokers)
+      connection = String.to_atom(topic)
 
-      patient_produce(topic, messages, produce_opts)
+      {:ok, supervisor} =
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
+
+      on_exit(fn -> assert_down(supervisor) end)
+
+      patient_produce(connection, topic, messages, produce_opts)
 
       parsed_messages = retrieve_results(@brokers, topic, Keyword.get(produce_opts, :partition, 0), 0)
 
@@ -77,28 +78,28 @@ defmodule Elsa.ProducerTest do
 
       where [
         [:topic, :num_partitions, :messages, :expected_messages, :produce_opts],
-        ["dt-producer-topic1", 1, [{"key1", "value1"}, {"key2", "value2"}], :same, [name: :"dt-producer-topic1"]],
+        ["dt-producer-topic1", 1, [{"key1", "value1"}, {"key2", "value2"}], :same, []],
         [
           "dt-producer-topic2",
           2,
           [{"key1", "value1"}, {"key2", "value2"}],
           :same,
-          [name: :"dt-producer-topic2", partition: 1]
+          [partition: 1]
         ],
-        ["dt-producer-topic3", 1, "this is the message", [{"", "this is the message"}], [name: :"dt-producer-topic3"]],
+        ["dt-producer-topic3", 1, "this is the message", [{"", "this is the message"}], []],
         [
           "dt-producer-topic4",
           1,
           ["message1", "message2"],
           [{"", "message1"}, {"", "message2"}],
-          [name: :"dt-producer-topic4"]
+          []
         ],
         [
           "dt-producer-topic5",
           1,
           ["message1", "message2"],
           [{"", "message1"}, {"", "message2"}],
-          [name: :"dt-producer-topic5", partition: 0]
+          [partition: 0]
         ]
       ]
     end
@@ -119,10 +120,14 @@ defmodule Elsa.ProducerTest do
   describe "partitioner functions" do
     test "produces to a topic partition randomly" do
       Elsa.create_topic(@brokers, "random-topic")
+      connection = :elsa_test3
 
-      Manager.start_link(name: :elsa_test3, topic: "random-topic", endpoints: @brokers)
+      {:ok, supervisor} =
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: "random-topic"])
 
-      patient_produce("random-topic", [{"key1", "value1"}, {"key2", "value2"}], name: :elsa_test3, partitioner: :random)
+      on_exit(fn -> assert_down(supervisor) end)
+
+      patient_produce(connection, "random-topic", [{"key1", "value1"}, {"key2", "value2"}], partitioner: :random)
 
       parsed_messages = retrieve_results(@brokers, "random-topic", 0, 0)
 
@@ -131,10 +136,14 @@ defmodule Elsa.ProducerTest do
 
     test "producers to a topic partition based on an md5 hash of the key" do
       Elsa.create_topic(@brokers, "hashed-topic", partitions: 5)
+      connection = :elsa_test4
 
-      Manager.start_link(name: :elsa_test4, topic: "hashed-topic", endpoints: @brokers)
+      {:ok, supervisor} =
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: "hashed-topic"])
 
-      patient_produce("hashed-topic", {"key", "value"}, name: :elsa_test4, partitioner: :md5)
+      on_exit(fn -> assert_down(supervisor) end)
+
+      patient_produce(connection, "hashed-topic", {"key", "value"}, partitioner: :md5)
 
       parsed_messages = retrieve_results(@brokers, "hashed-topic", 1, 0)
 
@@ -143,19 +152,20 @@ defmodule Elsa.ProducerTest do
   end
 
   describe "no producer started" do
-    test "will return {:error, :client_down} when no client has been started" do
+    test "will return error when no client has been started" do
       Elsa.create_topic(@brokers, "bad-topic")
 
       messages = [{"key", "value"}]
 
-      assert {:error, :client_down} == Elsa.produce_sync("bad-topic", messages)
+      assert {:error, "Elsa with connection unknown_connection has not been started correctly"} ==
+               Elsa.produce(:unknown_connection, "bad-topic", messages)
     end
   end
 
-  defp patient_produce(topic, messages, opts) do
+  defp patient_produce(connection, topic, messages, opts) do
     Patiently.wait_for!(
       fn ->
-        case Producer.produce_sync(topic, messages, opts) do
+        case Producer.produce(connection, topic, messages, opts) do
           :ok ->
             true
 
