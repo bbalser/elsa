@@ -75,30 +75,37 @@ defmodule Elsa.UtilTest do
     test "will create chunks that are less then suppliec chunk_byte_size" do
       chunks =
         ?a..?z
-        |> Enum.map(&List.to_string([&1]))
+        |> Enum.map(&to_message/1)
         |> Elsa.Util.chunk_by_byte_size(10 * 10)
 
       assert length(chunks) == 3
-      assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&List.to_string([&1]))
-      assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&List.to_string([&1]))
-      assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&List.to_string([&1]))
+      assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&to_message/1)
+      assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&to_message/1)
+      assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&to_message/1)
     end
 
     test "will create chunks of for {key, value} pairs" do
       chunks =
         ?a..?z
-        |> Enum.map(&to_tuple/1)
+        |> Enum.map(&to_message(&1, key: true))
         |> Elsa.Util.chunk_by_byte_size(20 + 10 * 10)
 
       assert length(chunks) == 3
-      assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&to_tuple/1)
-      assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&to_tuple/1)
-      assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&to_tuple/1)
+      assert Enum.at(chunks, 0) == ?a..?i |> Enum.map(&to_message(&1, key: true))
+      assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&to_message(&1, key: true))
+      assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&to_message(&1, key: true))
     end
   end
 
-  defp to_tuple(char) do
+  defp to_message(char, opts \\ []) do
     string = List.to_string([char])
-    {string, string}
+
+    key =
+      case Keyword.get(opts, :key, false) do
+        true -> string
+        false -> ""
+      end
+
+    %{key: key, value: string}
   end
 end

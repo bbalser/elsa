@@ -171,12 +171,4 @@ defmodule Elsa.Util do
 
     byte_size(key) + byte_size(value) + header_size
   end
-
-  defp get_byte_size({one, two}) do
-    byte_size(one) + byte_size(two)
-  end
-
-  defp get_byte_size(item) do
-    byte_size(item)
-  end
 end
