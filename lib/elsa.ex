@@ -51,10 +51,11 @@ defmodule Elsa do
     @type elsa_message :: %Elsa.Message{
             topic: Elsa.topic(),
             partition: Elsa.partition(),
-            offset: integer(),
-            key: term(),
-            value: term(),
-            generation_id: integer() | nil
+            offset: integer,
+            key: term,
+            value: term,
+            generation_id: integer | nil,
+            headers: list
           }
 
     defstruct [
@@ -64,7 +65,8 @@ defmodule Elsa do
       :key,
       :value,
       :timestamp,
-      :generation_id
+      :generation_id,
+      :headers
     ]
 
     @doc """
@@ -76,7 +78,7 @@ defmodule Elsa do
     """
 
     @spec new(kafka_message(), keyword()) :: elsa_message()
-    def new(kafka_message(offset: offset, key: key, value: value, ts: timestamp), attributes) do
+    def new(kafka_message(offset: offset, key: key, value: value, ts: timestamp, headers: headers), attributes) do
       %Message{
         topic: Keyword.fetch!(attributes, :topic),
         partition: Keyword.fetch!(attributes, :partition),
@@ -84,7 +86,8 @@ defmodule Elsa do
         key: key,
         value: value,
         timestamp: timestamp,
-        generation_id: Keyword.get(attributes, :generation_id)
+        generation_id: Keyword.get(attributes, :generation_id),
+        headers: headers
       }
     end
   end

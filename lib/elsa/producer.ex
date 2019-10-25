@@ -55,8 +55,9 @@ defmodule Elsa.Producer do
     do_produce_sync(connection, topic, [transform_message(message)], opts)
   end
 
-  defp transform_message({key, value}), do: {key, value}
-  defp transform_message(message), do: {"", message}
+  defp transform_message(%{key: _key, value: _value} = msg), do: msg
+  defp transform_message({key, value}), do: %{key: key, value: value}
+  defp transform_message(message), do: %{key: "", value: message}
 
   defp do_produce_sync(connection, topic, messages, opts) do
     Elsa.Util.with_registry(connection, fn registry ->
@@ -73,10 +74,8 @@ defmodule Elsa.Producer do
 
   defp produce_sync_while_successful(registry, topic, message_chunks) do
     Enum.reduce_while(message_chunks, {:ok, 0}, fn {partition, chunk}, {:ok, messages_sent} ->
-      total_size = Enum.reduce(chunk, 0, fn {key, value}, acc -> acc + byte_size(key) + byte_size(value) end)
-
       Logger.debug(fn ->
-        "#{__MODULE__} Sending #{length(chunk)} messages to #{topic}:#{partition} - Size : #{total_size}"
+        "#{__MODULE__} Sending #{length(chunk)} messages to #{topic}:#{partition}"
       end)
 
       case brod_produce(registry, topic, partition, chunk) do
@@ -113,7 +112,7 @@ defmodule Elsa.Producer do
         nil ->
           {:ok, partition_num} = :brod_client.get_partitions_count(client, topic)
           partitioner = Keyword.get(opts, :partitioner, :default)
-          {:ok, fn {key, _value} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end}
+          {:ok, fn %{key: key} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end}
 
         partition ->
           {:ok, fn _msg -> partition end}

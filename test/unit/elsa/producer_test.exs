@@ -18,7 +18,7 @@ defmodule Elsa.ProducerTest do
       allow :brod_producer.sync_produce_request(any(), any()), return: {:ok, 0}
       Elsa.Registry.register_name({:elsa_registry_test_client, :"producer_topic-a_0"}, self())
 
-      messages = Enum.map(1..2_000, fn i -> {"", random_string(i)} end)
+      messages = Enum.map(1..2_000, fn i -> %{key: "", value: random_string(i)} end)
       {:error, reason, failed} = Elsa.produce(:test_client, "topic-a", messages, connection: :test_client, partition: 0)
 
       assert reason == "1331 messages succeeded before elsa producer failed midway through due to :some_reason"

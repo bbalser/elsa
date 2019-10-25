@@ -163,6 +163,15 @@ defmodule Elsa.Util do
     finish_batch(0, nil, current_batch)
   end
 
+  defp get_byte_size(%{key: key, value: value} = msg) do
+    header_size =
+      Map.get(msg, :headers, [])
+      |> Enum.map(fn {key, value} -> byte_size(key) + byte_size(value) end)
+      |> Enum.sum()
+
+    byte_size(key) + byte_size(value) + header_size
+  end
+
   defp get_byte_size({one, two}) do
     byte_size(one) + byte_size(two)
   end
