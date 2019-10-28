@@ -103,6 +103,28 @@ defmodule Elsa.ProducerTest do
         ]
       ]
     end
+
+    test "produce can have custom headers" do
+      topic = "headers-topic-1"
+      connection = String.to_atom(topic)
+      Elsa.create_topic(@brokers, topic)
+
+      {:ok, supervisor} =
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
+
+      on_exit(fn -> assert_down(supervisor) end)
+
+      messages = [
+        %{key: "key1", value: "value1", headers: [{"header1", "one"}, {"header2", "two"}]},
+        %{key: "key2", value: "value2", headers: [{"header2", "two"}]}
+      ]
+
+      Elsa.produce(connection, topic, messages, partition: 0)
+
+      {:ok, _count, messages} = Elsa.fetch(@brokers, topic, partition: 0)
+      assert [{"header1", "one"}, {"header2", "two"}] == Enum.at(messages, 0) |> Map.get(:headers)
+      assert [{"header2", "two"}] == Enum.at(messages, 1) |> Map.get(:headers)
+    end
   end
 
   describe "ad hoc produce_sync" do
