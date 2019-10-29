@@ -11,14 +11,19 @@ defmodule Elsa.Topic do
   Returns a list of all topics managed by the cluster as tuple of topic name and
   number of partitions.
   """
-  @spec list(keyword()) :: [{String.t(), integer()}]
+  @spec list(keyword) :: {:ok, [{String.t(), integer}]} | {:error, term}
   def list(endpoints) do
     {:ok, metadata} = :brod.get_metadata(reformat_endpoints(endpoints), :all)
 
-    metadata.topic_metadata
-    |> Enum.map(fn topic_metadata ->
-      {topic_metadata.topic, Enum.count(topic_metadata.partition_metadata)}
-    end)
+    topics =
+      metadata.topic_metadata
+      |> Enum.map(fn topic_metadata ->
+        {topic_metadata.topic, Enum.count(topic_metadata.partition_metadata)}
+      end)
+
+    {:ok, topics}
+  catch
+    error -> {:error, error}
   end
 
   @doc """
@@ -26,12 +31,9 @@ defmodule Elsa.Topic do
   """
   @spec exists?(keyword(), String.t()) :: boolean()
   def exists?(endpoints, topic) do
-    topics =
-      endpoints
-      |> list()
-      |> Enum.map(fn {topic, _partition} -> topic end)
-
-    topic in topics
+    with {:ok, topics} <- list(endpoints) do
+      Enum.any?(topics, fn {t, _} -> t == topic end)
+    end
   end
 
   @doc """
