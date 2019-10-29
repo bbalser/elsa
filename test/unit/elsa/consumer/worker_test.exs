@@ -8,9 +8,17 @@ defmodule Elsa.Consumer.WorkerTest do
   describe "handle_info/2" do
     setup do
       Elsa.Registry.start_link(keys: :unique, name: Elsa.Supervisor.registry(:test_name))
-      allow Elsa.Group.Manager.ack(any(), any(), any(), any(), any()), return: :ok
-      allow Elsa.Consumer.ack(any(), any(), any(), any()), return: :ok, meck_options: [:passthrough]
-      allow :brod.subscribe(any(), any(), any(), any(), any()), return: {:ok, self()}, meck_options: [:passthrough]
+      allow(Elsa.Group.Manager.ack(any(), any(), any(), any(), any()), return: :ok)
+
+      allow(Elsa.Consumer.ack(any(), any(), any(), any()),
+        return: :ok,
+        meck_options: [:passthrough]
+      )
+
+      allow(:brod.subscribe(any(), any(), any(), any(), any()),
+        return: {:ok, self()},
+        meck_options: [:passthrough]
+      )
 
       on_exit(fn ->
         pid = Process.whereis(__MODULE__)
@@ -56,9 +64,9 @@ defmodule Elsa.Consumer.WorkerTest do
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
-      assert_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, 5, 13)
+      assert_called(Elsa.Group.Manager.ack(:test_name, "test-topic", 0, 5, 13))
 
-      where ack: [:ack, :acknowledge]
+      where(ack: [:ack, :acknowledge])
     end
 
     data_test "handler can say #{response}", %{messages: messages, state: state} do
@@ -66,9 +74,9 @@ defmodule Elsa.Consumer.WorkerTest do
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
-      refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
-      refute_called :brod.consume_ack(:test_name, "test-topic", 0, any())
-      where response: [:no_ack, :noop]
+      refute_called(Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any()))
+      refute_called(:brod.consume_ack(:test_name, "test-topic", 0, any()))
+      where(response: [:no_ack, :noop])
     end
 
     test "handler can say to continue to consume the ack but not ack consumer group", %{
@@ -79,8 +87,24 @@ defmodule Elsa.Consumer.WorkerTest do
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
+      refute_called(Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any()))
+      assert_called(Elsa.Consumer.ack(:test_name, "test-topic", 0, any()))
+    end
+
+    data_test "acking without a generation_id continues to consume messages", %{
+      messages: messages,
+      state: state
+    } do
+      set_handler(fn msgs ->
+        offset = msgs |> List.first() |> Map.get(:offset)
+        {ack, offset}
+      end)
+
+      Elsa.Consumer.Worker.handle_info({:some_pid, messages}, Map.put(state, :generation_id, nil))
       refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
       assert_called Elsa.Consumer.ack(:test_name, "test-topic", 0, any())
+
+      where ack: [:ack, :acknowledge]
     end
   end
 

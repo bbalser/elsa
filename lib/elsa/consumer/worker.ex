@@ -3,7 +3,7 @@ defmodule Elsa.Consumer.Worker do
   Defines the worker GenServer that is managed by the DynamicSupervisor.
   Workers are instantiated and assigned to a specific topic/partition
   and process messages according to the specified message handler module
-  passed in from the manager before calling the manager's ack function to
+  passed in from the manager before calling the ack function to
   notify the cluster the messages have been successfully processed.
   """
   use GenServer, restart: :temporary
@@ -58,7 +58,7 @@ defmodule Elsa.Consumer.Worker do
       connection: Keyword.fetch!(init_args, :connection),
       topic: Keyword.fetch!(init_args, :topic),
       partition: Keyword.fetch!(init_args, :partition),
-      generation_id: Keyword.fetch!(init_args, :generation_id),
+      generation_id: Keyword.get(init_args, :generation_id),
       offset: Keyword.fetch!(init_args, :begin_offset),
       handler: Keyword.fetch!(init_args, :handler),
       handler_init_args: Keyword.fetch!(init_args, :handler_init_args),
@@ -132,6 +132,10 @@ defmodule Elsa.Consumer.Worker do
 
   defp send_messages_to_handler(messages, state) do
     state.handler.handle_messages(messages, state.handler_state)
+  end
+
+  defp ack_messages(topic, partition, offset, %{generation_id: nil} = state) do
+    Elsa.Consumer.ack(state.connection, topic, partition, offset)
   end
 
   defp ack_messages(topic, partition, offset, state) do
