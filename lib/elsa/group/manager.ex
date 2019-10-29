@@ -235,7 +235,7 @@ defmodule Elsa.Group.Manager do
     case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-        :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
+        :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
         new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
         {:noreply, %{state | workers: new_workers}}
 

@@ -73,7 +73,7 @@ defmodule Elsa.Group.DirectAcknowledger do
 
     with {:ok, response} <- :brod_utils.request_sync(state.kafka_connection, request, @timeout),
          :ok <- parse_response(response) do
-      :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
+      :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
       {:reply, :ok, state}
     else
       {:error, reason} ->

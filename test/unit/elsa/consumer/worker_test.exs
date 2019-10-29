@@ -9,7 +9,7 @@ defmodule Elsa.Consumer.WorkerTest do
     setup do
       Elsa.Registry.start_link(keys: :unique, name: Elsa.Supervisor.registry(:test_name))
       allow Elsa.Group.Manager.ack(any(), any(), any(), any(), any()), return: :ok
-      allow Elsa.Group.Consumer.ack(any(), any(), any(), any()), return: :ok, meck_options: [:passthrough]
+      allow Elsa.Consumer.ack(any(), any(), any(), any()), return: :ok, meck_options: [:passthrough]
       allow :brod.subscribe(any(), any(), any(), any(), any()), return: {:ok, self()}, meck_options: [:passthrough]
 
       on_exit(fn ->
@@ -80,7 +80,7 @@ defmodule Elsa.Consumer.WorkerTest do
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
       refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
-      assert_called Elsa.Group.Consumer.ack(:test_name, "test-topic", 0, any())
+      assert_called Elsa.Consumer.ack(:test_name, "test-topic", 0, any())
     end
   end
 

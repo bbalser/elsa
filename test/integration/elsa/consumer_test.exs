@@ -1,4 +1,4 @@
-defmodule Elsa.Group.ConsumerTest do
+defmodule Elsa.ConsumerTest do
   use ExUnit.Case
   use Divo
   import AsyncAssertion

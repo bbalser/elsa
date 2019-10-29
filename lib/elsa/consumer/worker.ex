@@ -112,7 +112,7 @@ defmodule Elsa.Consumer.Worker do
 
       {:continue, new_handler_state} ->
         offset = transformed_messages |> List.last() |> Map.get(:offset)
-        :ok = Elsa.Group.Consumer.ack(state.connection, topic, partition, offset)
+        :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
         {:noreply, %{state | handler_state: new_handler_state}}
     end
   end
@@ -149,7 +149,7 @@ defmodule Elsa.Consumer.Worker do
   defp subscribe(state, retries) do
     opts = determine_subscriber_opts(state)
 
-    case Elsa.Group.Consumer.subscribe(state.connection, state.topic, state.partition, opts) do
+    case Elsa.Consumer.subscribe(state.connection, state.topic, state.partition, opts) do
       {:error, reason} ->
         Logger.warn(
           "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{

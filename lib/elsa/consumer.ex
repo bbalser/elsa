@@ -1,4 +1,4 @@
-defmodule Elsa.Group.Consumer do
+defmodule Elsa.Consumer do
   @moduledoc """
   Centralizes definition for common functions related
   to consumer interactions.
