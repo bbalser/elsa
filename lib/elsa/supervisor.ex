@@ -41,6 +41,8 @@ defmodule Elsa.Supervisor do
 
   * `:group_consumer` - Optional. Group consumer configuration.
 
+  * `:consumer` - Optional. Simple topic consumer configuration.
+
 
   ## Producer Config
 
@@ -72,6 +74,19 @@ defmodule Elsa.Supervisor do
   * `:config` - Optional. Consumer configuration options passed to `brod_consumer`.
 
 
+  ## Consumer Config
+
+  * `:topic` - Required. Topic to subscribe to.
+
+  * `:partition` - Required. Topic partition to subscribe to.
+
+  * `:begin_offset` - Required. Where to begin consuming from the topic. Must be either `:earliest` or `:latest`.
+
+  * `:handler` - Required. Module that implements `Elsa.Consumer.MessageHandler` behaviour.
+
+  * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
+
+
   ## Example
 
   ```
@@ -79,6 +94,12 @@ defmodule Elsa.Supervisor do
       endpoints: [localhost: 9092],
       connection: :conn,
       producer: [topic: "topic1"],
+      consumer: [
+        topic: "topic2",
+        partition: 0,
+        begin_offest: :earliest,
+        handler: ExampleHandler
+      ],
       group_consumer: [
         group: "example-group",
         topics: ["topic1"],
@@ -112,7 +133,8 @@ defmodule Elsa.Supervisor do
         {Elsa.Registry, name: registry},
         start_client(args),
         start_producer(registry, Keyword.get(args, :producer)),
-        start_group_consumer(connection, registry, Keyword.get(args, :group_consumer))
+        start_group_consumer(connection, registry, Keyword.get(args, :group_consumer)),
+        start_consumer(connection, registry, Keyword.get(args, :consumer))
       ]
       |> List.flatten()
 
@@ -138,6 +160,21 @@ defmodule Elsa.Supervisor do
       |> Keyword.put(:name, via_name(registry, Elsa.Group.Supervisor))
 
     {Elsa.Group.Supervisor, group_consumer_args}
+  end
+
+  defp start_consumer(_connection, _registry, nil), do: []
+
+  defp start_consumer(connection, registry, args) do
+    consumer_args =
+      args
+      |> Keyword.put(:registry, registry)
+      |> Keyword.put(:connection, connection)
+      |> Keyword.put_new(:config, [])
+
+    [
+      {Elsa.Group.ConsumerSupervisor, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Group.ConsumerSupervisor))},
+      {Elsa.Consumer.Worker, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Consumer.Worker))}
+    ]
   end
 
   defp start_producer(_registry, nil), do: []

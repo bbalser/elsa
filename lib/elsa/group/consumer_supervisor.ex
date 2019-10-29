@@ -27,15 +27,22 @@ defmodule Elsa.Group.ConsumerSupervisor do
     config = Keyword.fetch!(args, :config)
 
     brod_client = Elsa.Registry.whereis_name({registry, :brod_client})
-    {:ok, partitions} = :brod_client.get_partitions_count(brod_client, topic)
 
-    children =
-      0..(partitions - 1)
-      |> Enum.map(fn partition ->
-        child_spec(registry, brod_client, topic, partition, config)
-      end)
+    Keyword.get_lazy(args, :partition, fn -> :brod_client.get_partitions_count(brod_client, topic) end)
+    |> to_child_specs(registry, brod_client, topic, config)
+    |> Supervisor.init(strategy: :one_for_one)
+  end
 
-    Supervisor.init(children, strategy: :one_for_one)
+  defp to_child_specs({:ok, partitions}, registry, brod_client, topic, config) do
+    0..(partitions - 1)
+    |> Enum.map(fn partition ->
+      child_spec(registry, brod_client, topic, partition, config)
+    end)
+  end
+
+  defp to_child_specs(partition, registry, brod_client, topic, config) do
+    child_spec(registry, brod_client, topic, partition, config)
+    |> List.wrap()
   end
 
   defp child_spec(registry, brod_client, topic, partition, config) do

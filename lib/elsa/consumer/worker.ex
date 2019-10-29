@@ -61,8 +61,8 @@ defmodule Elsa.Consumer.Worker do
       generation_id: Keyword.get(init_args, :generation_id),
       offset: Keyword.fetch!(init_args, :begin_offset),
       handler: Keyword.fetch!(init_args, :handler),
-      handler_init_args: Keyword.fetch!(init_args, :handler_init_args),
-      config: Keyword.fetch!(init_args, :config)
+      handler_init_args: Keyword.get(init_args, :handler_init_args, []),
+      config: Keyword.get(init_args, :config, [])
     }
 
     Process.put(:elsa_connection, state.connection)
