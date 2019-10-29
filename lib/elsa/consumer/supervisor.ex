@@ -1,4 +1,4 @@
-defmodule Elsa.Group.ConsumerSupervisor do
+defmodule Elsa.Consumer.Supervisor do
   @moduledoc """
   Supervisor that starts and manages brod consumer processes,
   one per topic/partition by way of the Elsa Wrapper GenServer.

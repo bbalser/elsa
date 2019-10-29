@@ -172,7 +172,7 @@ defmodule Elsa.Supervisor do
       |> Keyword.put_new(:config, [])
 
     [
-      {Elsa.Group.ConsumerSupervisor, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Group.ConsumerSupervisor))},
+      {Elsa.Consumer.Supervisor, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Consumer.Supervisor))},
       {Elsa.Consumer.Worker, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Consumer.Worker))}
     ]
   end

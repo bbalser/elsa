@@ -34,7 +34,7 @@ defmodule Elsa.Group.Supervisor do
 
   defp consumer_supervisors(registry, topics, config) do
     Enum.map(topics, fn topic ->
-      {Elsa.Group.ConsumerSupervisor, [registry: registry, topic: topic, config: config]}
+      {Elsa.Consumer.Supervisor, [registry: registry, topic: topic, config: config]}
     end)
   end
 
