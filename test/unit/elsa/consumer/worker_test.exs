@@ -1,8 +1,8 @@
-defmodule Elsa.Group.WorkerTest do
+defmodule Elsa.Consumer.WorkerTest do
   use ExUnit.Case
   use Placebo
   import Checkov
-  import Elsa.Group.Worker, only: [kafka_message_set: 1]
+  import Elsa.Consumer.Worker, only: [kafka_message_set: 1]
   import Elsa.Message, only: [kafka_message: 1]
 
   describe "handle_info/2" do
@@ -28,12 +28,12 @@ defmodule Elsa.Group.WorkerTest do
         partition: 0,
         generation_id: 5,
         begin_offset: 13,
-        handler: Elsa.Group.WorkerTest.Handler,
+        handler: Elsa.Consumer.WorkerTest.Handler,
         handler_init_args: [],
         config: []
       ]
 
-      Elsa.Group.Worker.start_link(init_args)
+      Elsa.Consumer.Worker.start_link(init_args)
 
       messages =
         kafka_message_set(
@@ -54,7 +54,7 @@ defmodule Elsa.Group.WorkerTest do
         {ack, offset}
       end)
 
-      Elsa.Group.Worker.handle_info({:some_pid, messages}, state)
+      Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
       assert_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, 5, 13)
 
@@ -64,7 +64,7 @@ defmodule Elsa.Group.WorkerTest do
     data_test "handler can say #{response}", %{messages: messages, state: state} do
       set_handler(fn _messags -> response end)
 
-      Elsa.Group.Worker.handle_info({:some_pid, messages}, state)
+      Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
       refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
       refute_called :brod.consume_ack(:test_name, "test-topic", 0, any())
@@ -77,7 +77,7 @@ defmodule Elsa.Group.WorkerTest do
     } do
       set_handler(fn _messages -> :continue end)
 
-      Elsa.Group.Worker.handle_info({:some_pid, messages}, state)
+      Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
       refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
       assert_called Elsa.Group.Consumer.ack(:test_name, "test-topic", 0, any())
@@ -91,7 +91,7 @@ defmodule Elsa.Group.WorkerTest do
       |> Map.delete(:begin_offset)
       |> Map.put(:offset, 13)
 
-    struct(Elsa.Group.Worker.State, state)
+    struct(Elsa.Consumer.Worker.State, state)
   end
 
   defp set_handler(handler) do
@@ -99,11 +99,11 @@ defmodule Elsa.Group.WorkerTest do
   end
 end
 
-defmodule Elsa.Group.WorkerTest.Handler do
+defmodule Elsa.Consumer.WorkerTest.Handler do
   use Elsa.Consumer.MessageHandler
 
   def handle_messages(messages) do
-    function = Agent.get(Elsa.Group.WorkerTest, fn s -> s end)
+    function = Agent.get(Elsa.Consumer.WorkerTest, fn s -> s end)
     function.(messages)
   end
 end

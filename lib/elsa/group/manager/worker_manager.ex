@@ -44,7 +44,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
     |> Map.values()
     |> Enum.each(fn worker ->
       Process.demonitor(worker.ref)
-      Elsa.Group.Worker.unsubscribe(worker.pid)
+      Elsa.Consumer.Worker.unsubscribe(worker.pid)
     end)
 
     %{}
@@ -87,7 +87,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
     ]
 
     supervisor = {:via, Elsa.Registry, {registry(state.connection), :worker_supervisor}}
-    {:ok, worker_pid} = DynamicSupervisor.start_child(supervisor, {Elsa.Group.Worker, init_args})
+    {:ok, worker_pid} = DynamicSupervisor.start_child(supervisor, {Elsa.Consumer.Worker, init_args})
     ref = Process.monitor(worker_pid)
 
     new_worker = %WorkerState{

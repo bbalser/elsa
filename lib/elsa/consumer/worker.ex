@@ -1,4 +1,4 @@
-defmodule Elsa.Group.Worker do
+defmodule Elsa.Consumer.Worker do
   @moduledoc """
   Defines the worker GenServer that is managed by the DynamicSupervisor.
   Workers are instantiated and assigned to a specific topic/partition
