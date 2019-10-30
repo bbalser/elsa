@@ -172,9 +172,13 @@ defmodule Elsa.Supervisor do
       |> Keyword.put_new(:config, [])
 
     [
-      {Elsa.Consumer.Supervisor, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Consumer.Supervisor))},
-      {Elsa.Consumer.Worker, Keyword.put(consumer_args, :name, via_name(registry, Elsa.Consumer.Worker))}
+      {Elsa.Consumer.Supervisor, named_args(consumer_args, registry, Elsa.Consumer.Supervisor)},
+      {Elsa.Consumer.Worker, named_args(consumer_args, registry, Elsa.Consumer.Worker)}
     ]
+  end
+
+  defp named_args(args, registry, name) do
+    Keyword.put(args, :name, via_name(registry, name))
   end
 
   defp start_producer(_registry, nil), do: []
