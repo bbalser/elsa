@@ -7,7 +7,7 @@ defmodule ElsaTest do
 
   describe "list_topics/1" do
     test "will return topics given a client identifier" do
-      topics = Elsa.list_topics(@endpoints)
+      {:ok, topics} = Elsa.list_topics(@endpoints)
 
       assert Enum.any?(topics, fn entry -> match?({"elsa-topic", 2}, entry) end)
     end
@@ -17,14 +17,14 @@ defmodule ElsaTest do
     test "will create a topic with 1 partition" do
       assert :ok == Elsa.create_topic(@endpoints, "new-topic")
 
-      topics = Elsa.list_topics(@endpoints)
+      {:ok, topics} = Elsa.list_topics(@endpoints)
       assert Enum.any?(topics, fn entry -> match?({"new-topic", 1}, entry) end)
     end
 
     test "will create a topic with 2 partitions" do
       assert :ok == Elsa.create_topic(@endpoints, "new-topic-2", partitions: 2)
 
-      topics = Elsa.list_topics(@endpoints)
+      {:ok, topics} = Elsa.list_topics(@endpoints)
       assert Enum.any?(topics, fn entry -> match?({"new-topic-2", 2}, entry) end)
     end
   end
@@ -39,14 +39,14 @@ defmodule ElsaTest do
     test "will delete a specified topic" do
       assert :ok == Elsa.delete_topic(@endpoints, "delete-topic1")
 
-      topics = Elsa.list_topics(@endpoints)
+      {:ok, topics} = Elsa.list_topics(@endpoints)
       refute Enum.member?(topics, {"delete-topic1", 1})
     end
 
     test "will delete a topic with multiple partitions" do
       assert :ok == Elsa.delete_topic(@endpoints, "delete-topic2")
 
-      topics = Elsa.list_topics(@endpoints)
+      {:ok, topics} = Elsa.list_topics(@endpoints)
       refute Enum.member?(topics, {"delete-topic2", 2})
     end
   end

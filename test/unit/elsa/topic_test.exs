@@ -91,7 +91,11 @@ defmodule Elsa.TopicTest do
 
       allow :brod.get_metadata(any(), :all), return: {:ok, metadata}
 
-      assert Elsa.list_topics(localhost: 9092) == [{"elsa-other-topic", 1}, {"elsa-topic", 2}]
+      assert Elsa.list_topics(localhost: 9092) == {:ok, [{"elsa-other-topic", 1}, {"elsa-topic", 2}]}
+    end
+
+    test "returns error tuple if error is thrown from brod" do
+      assert {:error, _} = Elsa.list_topics(localhost: 9092)
     end
   end
 
