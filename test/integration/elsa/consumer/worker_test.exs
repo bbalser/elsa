@@ -98,6 +98,38 @@ defmodule Elsa.Consumer.WorkerTest do
 
     Supervisor.stop(pid)
   end
+
+  test "can be configured to consume from a specific offset" do
+    Patiently.wait_for!(
+      fn ->
+        :ok = Elsa.create_topic(@endpoints, "specific-offset", partitions: 1)
+      end,
+      dwell: 1_000,
+      max_tries: 30
+    )
+
+    Elsa.produce(@endpoints, "specific-offset", {"0", "a"}, partition: 0)
+    Elsa.produce(@endpoints, "specific-offset", {"1", "b"}, partition: 0)
+    Elsa.produce(@endpoints, "specific-offset", {"2", "c"}, partition: 0)
+
+    {:ok, pid} =
+      Elsa.Supervisor.start_link(
+        connection: :test_simple_consumer_partition,
+        endpoints: @endpoints,
+        consumer: [
+          topic: "specific-offset",
+          partition: 0,
+          begin_offset: 1,
+          handler: MyMessageHandler,
+          handler_init_args: [pid: self()]
+        ]
+      )
+
+    assert_receive [%Elsa.Message{value: "b"}, %Elsa.Message{value: "c"}], 5_000
+    refute_receive [%Elsa.Message{value: "a"}]
+
+    Supervisor.stop(pid)
+  end
 end
 
 defmodule MyMessageHandler do

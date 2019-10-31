@@ -80,7 +80,7 @@ defmodule Elsa.Supervisor do
 
   * `:partition` - Required. Topic partition to subscribe to.
 
-  * `:begin_offset` - Required. Where to begin consuming from the topic. Must be either `:earliest` or `:latest`.
+  * `:begin_offset` - Required. Where to begin consuming from the topic. Must be either `:earliest`, `:latest`, or a valid offset integer.
 
   * `:handler` - Required. Module that implements `Elsa.Consumer.MessageHandler` behaviour.
 
