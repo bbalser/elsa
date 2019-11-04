@@ -86,7 +86,8 @@ defmodule Elsa.Consumer.WorkerTest do
           partition: 0,
           begin_offset: :latest,
           handler: MyMessageHandler,
-          handler_init_args: [pid: self()]
+          handler_init_args: [pid: self()],
+          config: [offset_reset_policy: :earliest]
         ]
       )
 

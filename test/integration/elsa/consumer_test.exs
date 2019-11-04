@@ -2,7 +2,6 @@ defmodule Elsa.ConsumerTest do
   use ExUnit.Case
   use Divo
   import AsyncAssertion
-  import TestHelper
   require Logger
 
   @brokers [localhost: 9092]
