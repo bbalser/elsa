@@ -78,11 +78,11 @@ defmodule Elsa.Supervisor do
 
   * `:topic` - Required. Topic to subscribe to.
 
-  * `:partition` - Required. Topic partition to subscribe to.
-
   * `:begin_offset` - Required. Where to begin consuming from the topic. Must be either `:earliest`, `:latest`, or a valid offset integer.
 
   * `:handler` - Required. Module that implements `Elsa.Consumer.MessageHandler` behaviour.
+
+  * `:partition` - Optional. Topic partition to subscribe to. If `nil`, will default to all partitions.
 
   * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
 
@@ -173,7 +173,7 @@ defmodule Elsa.Supervisor do
 
     [
       {Elsa.Consumer.Supervisor, named_args(consumer_args, registry, Elsa.Consumer.Supervisor)},
-      {Elsa.Consumer.Worker, named_args(consumer_args, registry, Elsa.Consumer.Worker)}
+      {Elsa.Consumer.WorkerSupervisor, consumer_args}
     ]
   end
 

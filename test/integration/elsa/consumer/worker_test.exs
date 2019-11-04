@@ -130,6 +130,36 @@ defmodule Elsa.Consumer.WorkerTest do
 
     Supervisor.stop(pid)
   end
+
+  test "defaults to consuming from all partitions" do
+    Patiently.wait_for!(
+      fn ->
+        :ok = Elsa.create_topic(@endpoints, "all-partitions", partitions: 2)
+      end,
+      dwell: 1_000,
+      max_tries: 30
+    )
+
+    Elsa.produce(@endpoints, "all-partitions", {"0", "a"}, partition: 0)
+    Elsa.produce(@endpoints, "all-partitions", {"1", "b"}, partition: 1)
+
+    {:ok, pid} =
+      Elsa.Supervisor.start_link(
+        connection: :test_simple_consumer_partition,
+        endpoints: @endpoints,
+        consumer: [
+          topic: "all-partitions",
+          begin_offset: :earliest,
+          handler: MyMessageHandler,
+          handler_init_args: [pid: self()]
+        ]
+      )
+
+    assert_receive [%Elsa.Message{value: "a"}], 5_000
+    assert_receive [%Elsa.Message{value: "b"}], 5_000
+
+    Supervisor.stop(pid)
+  end
 end
 
 defmodule MyMessageHandler do
