@@ -12,8 +12,6 @@ defmodule Elsa.Group.LifecycleHooksTest do
     allow WorkerManager.start_worker(any(), any(), any(), any()), return: :workers
     allow WorkerManager.stop_all_workers(any()), return: :workers
 
-    :ets.new(:fake_test_name_elsa_table, [:set, :public, :named_table])
-
     test_pid = self()
 
     state = %{

@@ -68,9 +68,6 @@ defmodule Elsa.Supervisor do
   * `:assignments_revoked_handler` - Optional. Zero arity function that will be called when assignments are revoked.
     All workers will be shutdown before callback is invoked and must return `:ok`.
 
-  * `:direct_ack` - Optional. Boolean, `true` indicates to bypass `brod_group_coordinator` and ack directly to kafka.
-    Defaults to `false`.
-
   * `:config` - Optional. Consumer configuration options passed to `brod_consumer`.
 
 

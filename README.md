@@ -45,7 +45,6 @@ config :my_app, :elsa,
     group: "data-stream-group",
     topics: ["incoming-streaming"],
     handler: MyApp.MessageHandler,
-    direct_ack: false,
     handler_init_args: %{},
     config: [
       begin_offset: :earliest

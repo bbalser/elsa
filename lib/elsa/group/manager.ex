@@ -93,8 +93,7 @@ defmodule Elsa.Group.Manager do
       :handler,
       :handler_init_args,
       :workers,
-      :generation_id,
-      :direct_acknowledger_pid
+      :generation_id
     ]
   end
 
@@ -124,27 +123,8 @@ defmodule Elsa.Group.Manager do
   """
   @spec ack(String.t(), Elsa.topic(), Elsa.partition(), generation_id(), integer()) :: :ok
   def ack(connection, topic, partition, generation_id, offset) do
-    case direct_ack?(connection) do
-      false ->
-        group_manager = {:via, Elsa.Registry, {registry(connection), __MODULE__}}
-        GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
-
-      true ->
-        case :ets.lookup(table_name(connection), :assignments) do
-          [{:assignments, member_id, assigned_generation_id}] when assigned_generation_id == generation_id ->
-            direct_acknowledger = {:via, Elsa.Registry, {registry(connection), Elsa.Group.DirectAcknowledger}}
-            Elsa.Group.DirectAcknowledger.ack(direct_acknowledger, member_id, topic, partition, generation_id, offset)
-
-          _ ->
-            Logger.warn(
-              "Invalid generation_id(#{generation_id}), ignoring ack - topic #{topic} partition #{partition} offset #{
-                offset
-              }"
-            )
-        end
-
-        :ok
-    end
+    group_manager = {:via, Elsa.Registry, {registry(connection), __MODULE__}}
+    GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
   end
 
   @doc """
@@ -185,10 +165,6 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
-    table_name = table_name(state.connection)
-    :ets.new(table_name, [:set, :protected, :named_table])
-    :ets.insert(table_name, {:direct_ack, Keyword.get(opts, :direct_ack, false)})
-
     {:ok, state, {:continue, :start_coordinator}}
   end
 
@@ -198,26 +174,18 @@ defmodule Elsa.Group.Manager do
 
     Elsa.Registry.register_name({registry(state.connection), :brod_group_coordinator}, group_coordinator_pid)
 
-    {:noreply,
-     %{
-       state
-       | group_coordinator_pid: group_coordinator_pid,
-         direct_acknowledger_pid: create_direct_acknowledger(state)
-     }}
+    {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
   catch
     :exit, reason ->
       wait_and_stop(reason, state)
   end
 
-  def handle_call({:process_assignments, member_id, generation_id, assignments}, _from, state) do
+  def handle_call({:process_assignments, _member_id, generation_id, assignments}, _from, state) do
     case call_lifecycle_assignment_received(state, assignments, generation_id) do
       {:error, reason} ->
         {:stop, reason, {:error, reason}, state}
 
       :ok ->
-        table_name = table_name(state.connection)
-        :ets.insert(table_name, {:assignments, member_id, generation_id})
-
         new_workers = start_workers(state, generation_id, assignments)
         {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
     end
@@ -227,7 +195,6 @@ defmodule Elsa.Group.Manager do
     Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
     :ok = apply(state.assignments_revoked_handler, [])
-    :ets.delete(table_name(state.connection), :assignments)
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
@@ -289,31 +256,5 @@ defmodule Elsa.Group.Manager do
   defp wait_and_stop(reason, state) do
     Process.sleep(2_000)
     {:stop, reason, state}
-  end
-
-  defp direct_ack?(connection) do
-    case :ets.lookup(table_name(connection), :direct_ack) do
-      [{:direct_ack, result}] -> result
-      _ -> false
-    end
-  end
-
-  defp create_direct_acknowledger(state) do
-    case direct_ack?(state.connection) do
-      false ->
-        nil
-
-      true ->
-        name = {:via, Elsa.Registry, {registry(state.connection), Elsa.Group.DirectAcknowledger}}
-
-        {:ok, direct_acknowledger_pid} =
-          Elsa.Group.DirectAcknowledger.start_link(name: name, connection: state.connection, group: state.group)
-
-        direct_acknowledger_pid
-    end
-  end
-
-  defp table_name(connection) do
-    :"#{connection}_elsa_table"
   end
 end
