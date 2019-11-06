@@ -25,7 +25,7 @@ defmodule Elsa.Producer do
           Elsa.topic(),
           {term(), term()} | term() | [{term(), term()}] | [term()],
           keyword()
-        ) :: :ok
+        ) :: :ok | {:error, String.t(), [Elsa.Message.elsa_message()]}
   def produce(endpoints_or_connection, topic, messages, opts \\ [])
 
   def produce(endpoints, topic, messages, opts) when is_list(endpoints) do
