@@ -195,11 +195,11 @@ defmodule Elsa.Group.Manager do
     Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
     :ok = apply(state.assignments_revoked_handler, [])
-    {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
+    {:reply, :ok, %{state | workers: new_workers}} #, generation_id: nil }}
   end
 
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
-    case state.generation_id == generation_id do
+    case generation_id >= state.generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
         :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
