@@ -8,7 +8,7 @@ defmodule Elsa.Consumer.WorkerTest do
   describe "handle_info/2" do
     setup do
       Elsa.Registry.start_link(keys: :unique, name: Elsa.Supervisor.registry(:test_name))
-      allow(Elsa.Group.Manager.ack(any(), any(), any(), any(), any()), return: :ok)
+      allow(Elsa.Group.Acknowledger.ack(any(), any(), any(), any(), any()), return: :ok)
 
       allow(Elsa.Consumer.ack(any(), any(), any(), any()),
         return: :ok,
@@ -64,7 +64,7 @@ defmodule Elsa.Consumer.WorkerTest do
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
-      assert_called(Elsa.Group.Manager.ack(:test_name, "test-topic", 0, 5, 13))
+      assert_called(Elsa.Group.Acknowledger.ack(:test_name, "test-topic", 0, 5, 13))
 
       where(ack: [:ack, :acknowledge])
     end
@@ -74,7 +74,7 @@ defmodule Elsa.Consumer.WorkerTest do
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
-      refute_called(Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any()))
+      refute_called(Elsa.Group.Acknowledger.ack(:test_name, "test-topic", 0, any(), any()))
       refute_called(:brod.consume_ack(:test_name, "test-topic", 0, any()))
       where(response: [:no_ack, :noop])
     end
@@ -87,7 +87,7 @@ defmodule Elsa.Consumer.WorkerTest do
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, state)
 
-      refute_called(Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any()))
+      refute_called(Elsa.Group.Acknowledger.ack(:test_name, "test-topic", 0, any(), any()))
       assert_called(Elsa.Consumer.ack(:test_name, "test-topic", 0, any()))
     end
 
@@ -101,7 +101,7 @@ defmodule Elsa.Consumer.WorkerTest do
       end)
 
       Elsa.Consumer.Worker.handle_info({:some_pid, messages}, Map.put(state, :generation_id, nil))
-      refute_called Elsa.Group.Manager.ack(:test_name, "test-topic", 0, any(), any())
+      refute_called Elsa.Group.Acknowledger.ack(:test_name, "test-topic", 0, any(), any())
       assert_called Elsa.Consumer.ack(:test_name, "test-topic", 0, any())
 
       where ack: [:ack, :acknowledge]

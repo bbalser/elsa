@@ -25,7 +25,8 @@ defmodule Elsa.Group.Supervisor do
       [
         {DynamicSupervisor, [strategy: :one_for_one, name: {:via, Elsa.Registry, {registry, :worker_supervisor}}]},
         consumer_supervisors(registry, topics, config),
-        {Elsa.Group.Manager, manager_args(init_arg)}
+        {Elsa.Group.Manager, manager_args(init_arg)},
+        {Elsa.Group.Acknowledger, init_arg}
       ]
       |> List.flatten()
 

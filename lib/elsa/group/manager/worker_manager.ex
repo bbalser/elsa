@@ -19,7 +19,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
   Retrieve the generation id, used in tracking assignments of workers to topic/partition,
   from the worker state map.
   """
-  @spec get_generation_id(map(), Elsa.topic(), Elsa.partition()) :: integer()
+  @spec get_generation_id(map(), Elsa.topic(), Elsa.partition()) :: Elsa.Group.Manager.generation_id()
   def get_generation_id(workers, topic, partition) do
     Map.get(workers, {topic, partition})
     |> Map.get(:generation_id)
@@ -59,8 +59,12 @@ defmodule Elsa.Group.Manager.WorkerManager do
   def restart_worker(workers, ref, %Elsa.Group.Manager.State{} = state) do
     worker = get_by_ref(workers, ref)
 
+    latest_offset =
+      Elsa.Registry.whereis_name({registry(state.connection), Elsa.Group.Acknowledger})
+      |> Elsa.Group.Acknowledger.get_latest_offset(worker.topic, worker.partition)
+
     assignment =
-      brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: worker.latest_offset)
+      brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: latest_offset)
 
     start_worker(workers, worker.generation_id, assignment, state)
   end

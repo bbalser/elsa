@@ -119,28 +119,6 @@ defmodule Elsa.Group.Manager do
   end
 
   @doc """
-  Trigger acknowledgement of processed messages back to the cluster.
-  """
-  @spec ack(String.t(), Elsa.topic(), Elsa.partition(), generation_id(), integer()) :: :ok
-  def ack(connection, topic, partition, generation_id, offset) do
-    group_manager = {:via, Elsa.Registry, {registry(connection), __MODULE__}}
-    GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
-  end
-
-  @doc """
-  Trigger acknowledgement of processed messages back to the cluster.
-  """
-  @spec ack(String.t(), %{
-          topic: Elsa.topic(),
-          partition: Elsa.partition(),
-          generation_id: generation_id(),
-          offset: integer()
-        }) :: :ok
-  def ack(connection, %{topic: topic, partition: partition, generation_id: generation_id, offset: offset}) do
-    ack(connection, topic, partition, generation_id, offset)
-  end
-
-  @doc """
   Start the group manager process and register a name with the process registry.
   """
   @spec start_link(start_config()) :: GenServer.on_start()
@@ -186,6 +164,9 @@ defmodule Elsa.Group.Manager do
         {:stop, reason, {:error, reason}, state}
 
       :ok ->
+        Elsa.Registry.whereis_name({registry(state.connection), Elsa.Group.Acknowledger})
+        |> Elsa.Group.Acknowledger.update_generation_id(generation_id)
+
         new_workers = start_workers(state, generation_id, assignments)
         {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
     end
@@ -195,26 +176,7 @@ defmodule Elsa.Group.Manager do
     Logger.info("Assignments revoked for group #{state.group}")
     new_workers = WorkerManager.stop_all_workers(state.workers)
     :ok = apply(state.assignments_revoked_handler, [])
-    {:reply, :ok, %{state | workers: new_workers}} #, generation_id: nil }}
-  end
-
-  def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
-    case generation_id >= state.generation_id do
-      true ->
-        :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-        :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
-        new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
-        {:noreply, %{state | workers: new_workers}}
-
-      false ->
-        Logger.warn(
-          "Invalid generation_id #{state.generation_id} == #{generation_id}, ignoring ack - topic #{topic} partition #{
-            partition
-          } offset #{offset}"
-        )
-
-        {:noreply, state}
-    end
+    {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
   def handle_info({:DOWN, ref, :process, _object, _reason}, state) do
