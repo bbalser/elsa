@@ -49,16 +49,22 @@ defmodule Elsa.Group.Acknowledger do
 
   def init(opts) do
     connection = Keyword.fetch!(opts, :connection)
-    group_coordinator = Elsa.Registry.whereis_name({registry(connection), :brod_group_coordinator})
 
     state = %{
       connection: connection,
       current_offsets: %{},
       generation_id: nil,
-      group_coordinator: group_coordinator
+      group_coordinator_pid: nil
     }
 
-    {:ok, state}
+    {:ok, state, {:continue, :get_coordinator}}
+  end
+
+  def handle_continue(:get_coordinator, state) do
+    retriever = fn -> Elsa.Registry.whereis_name({registry(state.connection), :brod_group_coordinator}) end
+    group_coordinator_pid = retrieve_coordinator(retriever, 5)
+
+    {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
   end
 
   def handle_call({:get_latest_offset, topic, partition}, _pid, %{current_offsets: offsets} = state) do
@@ -72,9 +78,9 @@ defmodule Elsa.Group.Acknowledger do
   end
 
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
-    case generation_id >= state.generation_id do
+    case state.generation_id == generation_id do
       true ->
-        :ok = :brod_group_coordinator.ack(state.group_coordinator, generation_id, topic, partition, offset)
+        :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
         :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
 
         new_offsets = update_offset(state.current_offsets, topic, partition, offset)
@@ -91,15 +97,18 @@ defmodule Elsa.Group.Acknowledger do
     end
   end
 
-  def handle_call() do
+  defp update_offset(offsets, topic, partition, offset) do
+    Map.put(offsets, {topic, partition}, offset + 1)
   end
 
-  defp update_offset(offsets, topic, partition, new_offset) do
-    Map.update(offsets, {topic, partition}, new_offset, fn current_offset ->
-      case new_offset >= current_offset do
-        true -> new_offset
-        false -> current_offset
-      end
-    end)
+  defp retrieve_coordinator(_, 0), do: raise RuntimeError, message: "Unable to retrieve group coordinator"
+  defp retrieve_coordinator(func, count) do
+    case func.() do
+      pid when is_pid(pid) ->
+        pid
+      :undefined ->
+        Process.sleep(10)
+        retrieve_coordinator(func, count - 1)
+    end
   end
 end
