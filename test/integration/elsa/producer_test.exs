@@ -53,7 +53,7 @@ defmodule Elsa.ProducerTest do
           end
         end,
         dwell: 1_000,
-        max_tries: 20
+        max_tries: 30
       )
     end
   end

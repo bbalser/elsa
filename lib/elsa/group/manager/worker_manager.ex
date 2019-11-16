@@ -26,15 +26,6 @@ defmodule Elsa.Group.Manager.WorkerManager do
   end
 
   @doc """
-  Update the current offset for a given worker with respect to messages consumed
-  from its topic/partition.
-  """
-  @spec update_offset(map(), Elsa.topic(), Elsa.partition(), integer()) :: map() | no_return()
-  def update_offset(workers, topic, partition, offset) do
-    Map.update!(workers, {topic, partition}, fn worker -> %{worker | latest_offset: offset + 1} end)
-  end
-
-  @doc """
   Iterate over all workers managed by the group manager and issue the unsubscribe call
   to disengage from the topic/partition and shut down gracefully.
   """
@@ -63,8 +54,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
       Elsa.Registry.whereis_name({registry(state.connection), Elsa.Group.Acknowledger})
       |> Elsa.Group.Acknowledger.get_latest_offset(worker.topic, worker.partition)
 
-    assignment =
-      brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: latest_offset)
+    assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: latest_offset)
 
     start_worker(workers, worker.generation_id, assignment, state)
   end

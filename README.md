@@ -18,7 +18,7 @@ The package can be installed by adding `elsa` to your list of dependencies in `m
 ```elixir
 def deps do
   [
-    {:elsa, "~> 0.10"}
+    {:elsa, "~> 0.11"}
   ]
 end
 ```
@@ -49,6 +49,12 @@ config :my_app, :elsa,
     config: [
       begin_offset: :earliest
     ]
+  ],
+  consumer: [
+    topic: "incoming-stream",
+    partition: 0,
+    begin_offset: :earliest,
+    handler: MyApp.MessageHandler
   ]
 ```
 
@@ -60,8 +66,8 @@ registry).
 Producers may be a single producer or a list of producers, differentiated by their
 topic, therefore Elsa allows a one-to-many association of supervision tree to producers.
 
-Consumer groups, in contrast, have a one-to-one relationship to an Elsa supervision
-tree, therefore you cannot define a nested list of `group_consumer` keyword arguments
+Consumers and consumer groups, in contrast, have a one-to-one relationship to an Elsa supervision
+tree, therefore you cannot define a nested list of `consumer` or `group_consumer` keyword arguments
 within your Elsa configuration.
 
 ## Testing

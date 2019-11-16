@@ -31,22 +31,33 @@ defmodule Elsa.Group.Acknowledger do
     ack(connection, topic, partition, generation_id, offset)
   end
 
-  @spec update_generation_id(pid() | atom(), non_neg_integer()) :: :ok
+  @doc """
+  Sync the group generation ID back to the acknowledger state for validation.
+  """
+  @spec update_generation_id(pid() | atom(), Elsa.Group.Manager.generation_id()) :: :ok
   def update_generation_id(acknowledger, generation_id) do
     GenServer.cast(acknowledger, {:update_generation, generation_id})
   end
 
+  @doc """
+  Retrieve the latest offset for a topic and partition. Primarily used for reinitializing
+  consumer workers to the latest unacknowledged offset after a rebalance or other disruption.
+  """
   @spec get_latest_offset(pid() | atom(), Elsa.topic(), Elsa.partition()) :: Elsa.Group.Manager.begin_offset()
   def get_latest_offset(acknowledger, topic, partition) do
     GenServer.call(acknowledger, {:get_latest_offset, topic, partition})
   end
 
+  @doc """
+  Instantiate an acknowledger process and register it to the Elsa registry.
+  """
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(opts) do
     connection = Keyword.fetch!(opts, :connection)
     GenServer.start_link(__MODULE__, opts, name: {:via, Elsa.Registry, {registry(connection), __MODULE__}})
   end
 
+  @impl GenServer
   def init(opts) do
     connection = Keyword.fetch!(opts, :connection)
 
@@ -60,6 +71,7 @@ defmodule Elsa.Group.Acknowledger do
     {:ok, state, {:continue, :get_coordinator}}
   end
 
+  @impl GenServer
   def handle_continue(:get_coordinator, state) do
     retriever = fn -> Elsa.Registry.whereis_name({registry(state.connection), :brod_group_coordinator}) end
     group_coordinator_pid = retrieve_coordinator(retriever, 5)
@@ -67,16 +79,19 @@ defmodule Elsa.Group.Acknowledger do
     {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
   end
 
+  @impl GenServer
   def handle_call({:get_latest_offset, topic, partition}, _pid, %{current_offsets: offsets} = state) do
     latest_offset = Map.get(offsets, {topic, partition})
 
     {:reply, latest_offset, state}
   end
 
+  @impl GenServer
   def handle_cast({:update_generation, generation_id}, state) do
     {:noreply, %{state | generation_id: generation_id}}
   end
 
+  @impl GenServer
   def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
     case state.generation_id == generation_id do
       true ->
@@ -101,11 +116,13 @@ defmodule Elsa.Group.Acknowledger do
     Map.put(offsets, {topic, partition}, offset + 1)
   end
 
-  defp retrieve_coordinator(_, 0), do: raise RuntimeError, message: "Unable to retrieve group coordinator"
+  defp retrieve_coordinator(_, 0), do: raise(RuntimeError, message: "Unable to retrieve group coordinator")
+
   defp retrieve_coordinator(func, count) do
     case func.() do
       pid when is_pid(pid) ->
         pid
+
       :undefined ->
         Process.sleep(10)
         retrieve_coordinator(func, count - 1)

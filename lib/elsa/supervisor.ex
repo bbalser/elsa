@@ -94,7 +94,7 @@ defmodule Elsa.Supervisor do
       consumer: [
         topic: "topic2",
         partition: 0,
-        begin_offest: :earliest,
+        begin_offset: :earliest,
         handler: ExampleHandler
       ],
       group_consumer: [
