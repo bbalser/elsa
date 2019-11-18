@@ -86,7 +86,6 @@ defmodule Elsa.Group.Manager do
       :group,
       :topics,
       :config,
-      :group_coordinator_pid,
       :supervisor_pid,
       :assignment_received_handler,
       :assignments_revoked_handler,
@@ -149,19 +148,7 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
-    {:ok, state, {:continue, :start_coordinator}}
-  end
-
-  def handle_continue(:start_coordinator, state) do
-    {:ok, group_coordinator_pid} =
-      :brod_group_coordinator.start_link(state.connection, state.group, state.topics, state.config, __MODULE__, self())
-
-    Elsa.Registry.register_name({registry(state.connection), :brod_group_coordinator}, group_coordinator_pid)
-
-    {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
-  catch
-    :exit, reason ->
-      wait_and_stop(reason, state)
+    {:ok, state}
   end
 
   def handle_call({:process_assignments, _member_id, generation_id, assignments}, _from, state) do
@@ -197,13 +184,9 @@ defmodule Elsa.Group.Manager do
     wait_and_stop(reason, state)
   end
 
-  def terminate(reason, %{group_coordinator_pid: group_coordinator_pid} = state) do
+  def terminate(reason, state) do
     Logger.info("#{__MODULE__} : Terminating #{state.connection}")
     WorkerManager.stop_all_workers(state.workers)
-
-    if group_coordinator_pid != nil && Process.alive?(group_coordinator_pid) do
-      Process.exit(group_coordinator_pid, reason)
-    end
 
     reason
   end

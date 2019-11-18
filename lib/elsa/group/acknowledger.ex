@@ -73,8 +73,7 @@ defmodule Elsa.Group.Acknowledger do
 
   @impl GenServer
   def handle_continue(:get_coordinator, state) do
-    retriever = fn -> Elsa.Registry.whereis_name({registry(state.connection), :brod_group_coordinator}) end
-    group_coordinator_pid = retrieve_coordinator(retriever, 5)
+    group_coordinator_pid = Elsa.Registry.whereis_name({registry(state.connection), :brod_group_coordinator})
 
     {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
   end
@@ -114,18 +113,5 @@ defmodule Elsa.Group.Acknowledger do
 
   defp update_offset(offsets, topic, partition, offset) do
     Map.put(offsets, {topic, partition}, offset + 1)
-  end
-
-  defp retrieve_coordinator(_, 0), do: raise(RuntimeError, message: "Unable to retrieve group coordinator")
-
-  defp retrieve_coordinator(func, count) do
-    case func.() do
-      pid when is_pid(pid) ->
-        pid
-
-      :undefined ->
-        Process.sleep(10)
-        retrieve_coordinator(func, count - 1)
-    end
   end
 end
