@@ -77,6 +77,8 @@ defmodule Elsa.Group.Manager do
           config: consumer_config()
         ]
 
+  @default_delay 5_000
+
   defmodule State do
     @moduledoc """
     The running state of the consumer group manager process.
@@ -89,6 +91,8 @@ defmodule Elsa.Group.Manager do
       :supervisor_pid,
       :assignment_received_handler,
       :assignments_revoked_handler,
+      :start_time,
+      :delay,
       :handler,
       :handler_init_args,
       :workers,
@@ -142,6 +146,8 @@ defmodule Elsa.Group.Manager do
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
       assignment_received_handler: Keyword.get(opts, :assignment_received_handler, fn _g, _t, _p, _gen -> :ok end),
       assignments_revoked_handler: Keyword.get(opts, :assignments_revoked_handler, fn -> :ok end),
+      start_time: :erlang.system_time(:milli_seconds),
+      delay: Keyword.get(opts, :delay, @default_delay),
       handler: Keyword.fetch!(opts, :handler),
       handler_init_args: Keyword.get(opts, :handler_init_args, %{}),
       config: Keyword.get(opts, :config, []),
@@ -180,8 +186,13 @@ defmodule Elsa.Group.Manager do
     {:noreply, %{state | workers: new_workers}}
   end
 
-  def handle_info({:EXIT, _from, reason}, state) do
-    wait_and_stop(reason, state)
+  def handle_info({:EXIT, _pid, reason}, %State{delay: delay, start_time: started} = state) do
+    lifetime = :erlang.system_time(:milli_seconds) - started
+
+    max(delay - lifetime, 0)
+    |> Process.sleep()
+
+    {:stop, reason, state}
   end
 
   def terminate(reason, state) do
@@ -204,10 +215,5 @@ defmodule Elsa.Group.Manager do
     Enum.reduce(assignments, state.workers, fn assignment, workers ->
       WorkerManager.start_worker(workers, generation_id, assignment, state)
     end)
-  end
-
-  defp wait_and_stop(reason, state) do
-    Process.sleep(2_000)
-    {:stop, reason, state}
   end
 end
