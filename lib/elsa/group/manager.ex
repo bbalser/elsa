@@ -97,6 +97,12 @@ defmodule Elsa.Group.Manager do
     ]
   end
 
+  @doc """
+  Provides convenience for backward compatibility with previous versions of Elsa where acking for
+  a consumer group was handled by the Elsa.Group.Manager module.
+  """
+  defdelegate ack(connection, topic, partition, generation_id, offset), to: Elsa.Group.Acknowledger
+
   def get_committed_offsets(_pid, _topic) do
     {:ok, []}
   end
@@ -164,8 +170,10 @@ defmodule Elsa.Group.Manager do
         {:stop, reason, {:error, reason}, state}
 
       :ok ->
-        Elsa.Registry.whereis_name({registry(state.connection), Elsa.Group.Acknowledger})
-        |> Elsa.Group.Acknowledger.update_generation_id(generation_id)
+        Elsa.Group.Acknowledger.update_generation_id(
+          {:via, Elsa.Registry, {registry(state.connection), Elsa.Group.Acknowledger}},
+          generation_id
+        )
 
         new_workers = start_workers(state, generation_id, assignments)
         {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}

@@ -51,8 +51,11 @@ defmodule Elsa.Group.Manager.WorkerManager do
     worker = get_by_ref(workers, ref)
 
     latest_offset =
-      Elsa.Registry.whereis_name({registry(state.connection), Elsa.Group.Acknowledger})
-      |> Elsa.Group.Acknowledger.get_latest_offset(worker.topic, worker.partition)
+      Elsa.Group.Acknowledger.get_latest_offset(
+        {:via, Elsa.Registry, {registry(state.connection), Elsa.Group.Acknowledger}},
+        worker.topic,
+        worker.partition
+      )
 
     assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: latest_offset)
 
