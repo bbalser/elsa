@@ -34,7 +34,7 @@ defmodule Elsa.Group.Acknowledger do
   @doc """
   Sync the group generation ID back to the acknowledger state for validation.
   """
-  @spec update_generation_id(pid() | atom(), Elsa.Group.Manager.generation_id()) :: :ok
+  @spec update_generation_id(pid() | atom() | {:via, atom(), term()}, Elsa.Group.Manager.generation_id()) :: :ok
   def update_generation_id(acknowledger, generation_id) do
     GenServer.cast(acknowledger, {:update_generation, generation_id})
   end
