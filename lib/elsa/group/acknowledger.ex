@@ -34,7 +34,7 @@ defmodule Elsa.Group.Acknowledger do
   @doc """
   Sync the group generation ID back to the acknowledger state for validation.
   """
-  @spec update_generation_id(pid() | atom() | {:via, atom(), term()}, Elsa.Group.Manager.generation_id()) :: :ok
+  @spec update_generation_id(GenServer.server(), Elsa.Group.Manager.generation_id()) :: :ok
   def update_generation_id(acknowledger, generation_id) do
     GenServer.cast(acknowledger, {:update_generation, generation_id})
   end
@@ -43,7 +43,7 @@ defmodule Elsa.Group.Acknowledger do
   Retrieve the latest offset for a topic and partition. Primarily used for reinitializing
   consumer workers to the latest unacknowledged offset after a rebalance or other disruption.
   """
-  @spec get_latest_offset(pid() | atom(), Elsa.topic(), Elsa.partition()) :: Elsa.Group.Manager.begin_offset()
+  @spec get_latest_offset(GenServer.server(), Elsa.topic(), Elsa.partition()) :: Elsa.Group.Manager.begin_offset()
   def get_latest_offset(acknowledger, topic, partition) do
     GenServer.call(acknowledger, {:get_latest_offset, topic, partition})
   end

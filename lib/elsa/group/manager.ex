@@ -113,7 +113,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger the assignment of workers to a given topic and partition
   """
-  @spec assignments_received(pid(), term(), generation_id(), [tuple()]) :: :ok
+  @spec assignments_received(GenServer.server(), term(), generation_id(), [tuple()]) :: :ok
   def assignments_received(pid, group_member_id, generation_id, assignments) do
     GenServer.call(pid, {:process_assignments, group_member_id, generation_id, assignments})
   end
@@ -122,7 +122,7 @@ defmodule Elsa.Group.Manager do
   Trigger deallocation of all workers from the consumer group and stop
   worker processes.
   """
-  @spec assignments_revoked(pid()) :: :ok
+  @spec assignments_revoked(GenServer.server()) :: :ok
   def assignments_revoked(pid) do
     GenServer.call(pid, :revoke_assignments, 30_000)
   end
