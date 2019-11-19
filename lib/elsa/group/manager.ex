@@ -77,6 +77,8 @@ defmodule Elsa.Group.Manager do
           config: consumer_config()
         ]
 
+  @default_delay 5_000
+
   defmodule State do
     @moduledoc """
     The running state of the consumer group manager process.
@@ -86,16 +88,23 @@ defmodule Elsa.Group.Manager do
       :group,
       :topics,
       :config,
-      :group_coordinator_pid,
       :supervisor_pid,
       :assignment_received_handler,
       :assignments_revoked_handler,
+      :start_time,
+      :delay,
       :handler,
       :handler_init_args,
       :workers,
       :generation_id
     ]
   end
+
+  @doc """
+  Provides convenience for backward compatibility with previous versions of Elsa where acking for
+  a consumer group was handled by the Elsa.Group.Manager module.
+  """
+  defdelegate ack(connection, topic, partition, generation_id, offset), to: Elsa.Group.Acknowledger
 
   def get_committed_offsets(_pid, _topic) do
     {:ok, []}
@@ -104,7 +113,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Trigger the assignment of workers to a given topic and partition
   """
-  @spec assignments_received(pid(), term(), generation_id(), [tuple()]) :: :ok
+  @spec assignments_received(GenServer.server(), term(), generation_id(), [tuple()]) :: :ok
   def assignments_received(pid, group_member_id, generation_id, assignments) do
     GenServer.call(pid, {:process_assignments, group_member_id, generation_id, assignments})
   end
@@ -113,31 +122,9 @@ defmodule Elsa.Group.Manager do
   Trigger deallocation of all workers from the consumer group and stop
   worker processes.
   """
-  @spec assignments_revoked(pid()) :: :ok
+  @spec assignments_revoked(GenServer.server()) :: :ok
   def assignments_revoked(pid) do
     GenServer.call(pid, :revoke_assignments, 30_000)
-  end
-
-  @doc """
-  Trigger acknowledgement of processed messages back to the cluster.
-  """
-  @spec ack(String.t(), Elsa.topic(), Elsa.partition(), generation_id(), integer()) :: :ok
-  def ack(connection, topic, partition, generation_id, offset) do
-    group_manager = {:via, Elsa.Registry, {registry(connection), __MODULE__}}
-    GenServer.cast(group_manager, {:ack, topic, partition, generation_id, offset})
-  end
-
-  @doc """
-  Trigger acknowledgement of processed messages back to the cluster.
-  """
-  @spec ack(String.t(), %{
-          topic: Elsa.topic(),
-          partition: Elsa.partition(),
-          generation_id: generation_id(),
-          offset: integer()
-        }) :: :ok
-  def ack(connection, %{topic: topic, partition: partition, generation_id: generation_id, offset: offset}) do
-    ack(connection, topic, partition, generation_id, offset)
   end
 
   @doc """
@@ -159,25 +146,15 @@ defmodule Elsa.Group.Manager do
       supervisor_pid: Keyword.fetch!(opts, :supervisor_pid),
       assignment_received_handler: Keyword.get(opts, :assignment_received_handler, fn _g, _t, _p, _gen -> :ok end),
       assignments_revoked_handler: Keyword.get(opts, :assignments_revoked_handler, fn -> :ok end),
+      start_time: :erlang.system_time(:milli_seconds),
+      delay: Keyword.get(opts, :delay, @default_delay),
       handler: Keyword.fetch!(opts, :handler),
       handler_init_args: Keyword.get(opts, :handler_init_args, %{}),
       config: Keyword.get(opts, :config, []),
       workers: %{}
     }
 
-    {:ok, state, {:continue, :start_coordinator}}
-  end
-
-  def handle_continue(:start_coordinator, state) do
-    {:ok, group_coordinator_pid} =
-      :brod_group_coordinator.start_link(state.connection, state.group, state.topics, state.config, __MODULE__, self())
-
-    Elsa.Registry.register_name({registry(state.connection), :brod_group_coordinator}, group_coordinator_pid)
-
-    {:noreply, %{state | group_coordinator_pid: group_coordinator_pid}}
-  catch
-    :exit, reason ->
-      wait_and_stop(reason, state)
+    {:ok, state}
   end
 
   def handle_call({:process_assignments, _member_id, generation_id, assignments}, _from, state) do
@@ -186,6 +163,11 @@ defmodule Elsa.Group.Manager do
         {:stop, reason, {:error, reason}, state}
 
       :ok ->
+        Elsa.Group.Acknowledger.update_generation_id(
+          {:via, Elsa.Registry, {registry(state.connection), Elsa.Group.Acknowledger}},
+          generation_id
+        )
+
         new_workers = start_workers(state, generation_id, assignments)
         {:reply, :ok, %{state | workers: new_workers, generation_id: generation_id}}
     end
@@ -198,42 +180,24 @@ defmodule Elsa.Group.Manager do
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
-  def handle_cast({:ack, topic, partition, generation_id, offset}, state) do
-    case state.generation_id == generation_id do
-      true ->
-        :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-        :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
-        new_workers = WorkerManager.update_offset(state.workers, topic, partition, offset)
-        {:noreply, %{state | workers: new_workers}}
-
-      false ->
-        Logger.warn(
-          "Invalid generation_id #{state.generation_id} == #{generation_id}, ignoring ack - topic #{topic} partition #{
-            partition
-          } offset #{offset}"
-        )
-
-        {:noreply, state}
-    end
-  end
-
   def handle_info({:DOWN, ref, :process, _object, _reason}, state) do
     new_workers = WorkerManager.restart_worker(state.workers, ref, state)
 
     {:noreply, %{state | workers: new_workers}}
   end
 
-  def handle_info({:EXIT, _from, reason}, state) do
-    wait_and_stop(reason, state)
+  def handle_info({:EXIT, _pid, reason}, %State{delay: delay, start_time: started} = state) do
+    lifetime = :erlang.system_time(:milli_seconds) - started
+
+    max(delay - lifetime, 0)
+    |> Process.sleep()
+
+    {:stop, reason, state}
   end
 
-  def terminate(reason, %{group_coordinator_pid: group_coordinator_pid} = state) do
+  def terminate(reason, state) do
     Logger.info("#{__MODULE__} : Terminating #{state.connection}")
     WorkerManager.stop_all_workers(state.workers)
-
-    if group_coordinator_pid != nil && Process.alive?(group_coordinator_pid) do
-      Process.exit(group_coordinator_pid, reason)
-    end
 
     reason
   end
@@ -251,10 +215,5 @@ defmodule Elsa.Group.Manager do
     Enum.reduce(assignments, state.workers, fn assignment, workers ->
       WorkerManager.start_worker(workers, generation_id, assignment, state)
     end)
-  end
-
-  defp wait_and_stop(reason, state) do
-    Process.sleep(2_000)
-    {:stop, reason, state}
   end
 end

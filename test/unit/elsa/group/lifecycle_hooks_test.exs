@@ -3,6 +3,8 @@ defmodule Elsa.Group.LifecycleHooksTest do
   use Placebo
 
   alias Elsa.Group.Manager.WorkerManager
+  alias Elsa.Registry
+  alias Elsa.Group.Acknowledger
   import Elsa.Group.Manager, only: [brod_received_assignment: 1]
 
   setup do
@@ -33,6 +35,9 @@ defmodule Elsa.Group.LifecycleHooksTest do
   end
 
   test "assignments_recieved calls lifecycle hook", %{state: state} do
+    allow Registry.whereis_name(any()), return: :ack_pid
+    allow Acknowledger.update_generation_id(any(), any()), return: :ok
+
     assignments = [
       brod_received_assignment(topic: "topic1", partition: 0, begin_offset: 0),
       brod_received_assignment(topic: "topic1", partition: 1, begin_offset: 0)
