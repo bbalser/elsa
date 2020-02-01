@@ -13,7 +13,12 @@ defmodule Elsa.Fetch do
   @spec fetch(keyword(), String.t(), keyword()) :: {:ok, integer(), [tuple()]} | {:error, term()}
   def fetch(endpoints, topic, opts \\ []) do
     partition = Keyword.get(opts, :partition, 0)
-    offset = Keyword.get(opts, :offset, 0)
+
+    offset =
+      Keyword.get_lazy(opts, :offset, fn ->
+        {:ok, offset} = :brod.resolve_offset(endpoints, topic, partition, :earliest)
+        offset
+      end)
 
     case :brod.fetch(endpoints, topic, partition, offset) do
       {:ok, {partition_offset, messages}} ->
