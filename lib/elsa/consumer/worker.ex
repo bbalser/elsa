@@ -46,9 +46,21 @@ defmodule Elsa.Consumer.Worker do
     GenServer.call(pid, :unsubscribe)
   end
 
+  @type init_opts :: [
+    connection: Elsa.connection(),
+    topic: Elsa.topic(),
+    partition: Elsa.partition(),
+    generation_id: non_neg_integer,
+    begin_offset: non_neg_integer,
+    handler: module,
+    handler_init_args: list,
+    config: :brod.consumer_options()
+  ]
+
   @doc """
   Start the worker process and init the state with the given config.
   """
+  @spec start_link(init_opts) :: GenServer.on_start()
   def start_link(init_args) do
     GenServer.start_link(__MODULE__, init_args)
   end

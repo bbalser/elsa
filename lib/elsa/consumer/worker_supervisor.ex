@@ -7,11 +7,17 @@ defmodule Elsa.Consumer.WorkerSupervisor do
   """
   use Supervisor
 
+  @type init_opts :: [
+    registry: atom,
+    topic: Elsa.topic(),
+    partition: Elsa.partition(),
+  ]
+
   @doc """
   Start the consumer worker supervisor and link it to the current process.
   Registers itself to the Elsa Registry.
   """
-  @spec start_link(keyword()) :: GenServer.on_start()
+  @spec start_link(init_opts) :: GenServer.on_start()
   def start_link(args) do
     registry = Keyword.fetch!(args, :registry)
     topic = Keyword.fetch!(args, :topic)

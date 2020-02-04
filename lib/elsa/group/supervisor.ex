@@ -9,6 +9,14 @@ defmodule Elsa.Group.Supervisor do
 
   import Elsa.Supervisor, only: [registry: 1]
 
+  @type init_opts :: [
+    connection: Elsa.connection(),
+    topics: [Elsa.topic()],
+    group: String.t(),
+    config: list
+  ]
+
+  @spec start_link(init_opts) :: GenServer.on_start()
   def start_link(init_arg \\ []) do
     connection = Keyword.fetch!(init_arg, :connection)
     Supervisor.start_link(__MODULE__, init_arg, name: {:via, Elsa.Registry, {registry(connection), __MODULE__}})
