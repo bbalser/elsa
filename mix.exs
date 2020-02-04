@@ -30,9 +30,9 @@ defmodule Elsa.MixProject do
       {:patiently, "~> 0.2", only: [:dev, :test, :integration]},
       {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
       {:divo_kafka, "~> 0.1.0", only: [:dev, :test, :integration]},
-      {:placebo, "~> 1.2.2", only: [:dev, :test]},
-      {:checkov, "~> 0.4.0", only: [:test, :integration]},
-      {:ex_doc, "~> 0.20.2", only: [:dev]},
+      {:placebo, "~> 1.2.0", only: [:dev, :test]},
+      {:checkov, "~> 1.0", only: [:test, :integration]},
+      {:ex_doc, "~> 0.21.3", only: [:dev]},
       {:dialyxir, "~> 1.0.0-rc.7", only: [:dev], runtime: false}
     ]
   end
