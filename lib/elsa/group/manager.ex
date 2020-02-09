@@ -130,7 +130,7 @@ defmodule Elsa.Group.Manager do
   @doc """
   Start the group manager process and register a name with the process registry.
   """
-  @spec start_link(start_config) :: GenServer.on_start()
+  @spec start_link(init_opts) :: GenServer.on_start()
   def start_link(opts) do
     connection = Keyword.fetch!(opts, :connection)
     GenServer.start_link(__MODULE__, opts, name: {:via, Elsa.Registry, {registry(connection), __MODULE__}})
