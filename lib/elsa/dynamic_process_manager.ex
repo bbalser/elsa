@@ -25,6 +25,7 @@ defmodule Elsa.DynamicProcessManager do
     Process.flag(:trap_exit, true)
 
     dynamic_supervisor = Keyword.fetch!(init_arg, :dynamic_supervisor)
+    synchronous? = Keyword.get(init_arg, :synchronous, false)
 
     state = %{
       dynamic_supervisor: dynamic_supervisor,
@@ -39,7 +40,12 @@ defmodule Elsa.DynamicProcessManager do
         _ -> fn -> [] end
       end
 
-    {:ok, state, {:continue, {:initialize, initializer}}}
+    case synchronous? do
+      false -> {:ok, state, {:continue, {:initialize, initializer}}}
+      true ->
+        {:noreply, new_state} = handle_continue({:initialize, initializer}, state)
+        {:ok, new_state}
+    end
   end
 
   def handle_continue({:initialize, initializer}, state) do

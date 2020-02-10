@@ -57,22 +57,33 @@ defmodule Elsa.DynamicProcessManagerTest do
 
   test "when initializer raises an error, it will retry until successful" do
     Agent.start_link(fn -> 7 end, name: :retry_counter)
+    start_supervised({DynamicSupervisor, strategy: :one_for_one, name: :dyn_sup})
 
-    children = [
-      {DynamicSupervisor, strategy: :one_for_one, name: :dyn_sup},
-      {Elsa.DynamicProcessManager,
-       id: :pm, name: :pm, dynamic_supervisor: :dyn_sup, initializer: {TestInitializer, :initialize, [self()]}}
-    ]
-
-    assert {:ok, supervisor} = Supervisor.start_link(children, strategy: :one_for_one)
+    start_supervised({
+      Elsa.DynamicProcessManager,
+      id: :pm, name: :pm, dynamic_supervisor: :dyn_sup, initializer: {TestInitializer, :initialize, [self()]}
+    })
 
     Enum.each(7..1, fn i -> assert_receive {:attempt, ^i}, 2_000 end)
     Process.sleep(2_000)
     assert 0 == Agent.get(:agent1, fn s -> s end)
+  end
 
-    ref = Process.monitor(supervisor)
-    Process.exit(supervisor, :normal)
-    assert_receive {:DOWN, ^ref, _, _, _}
+  test "can opt to start processes synchronously" do
+    start_supervised({DynamicSupervisor, strategy: :one_for_one, name: :dyn_sup})
+
+    start_supervised(
+      {Elsa.DynamicProcessManager,
+       id: :pm,
+       name: :pm,
+       dynamic_supervisor: :dyn_sup,
+       synchronous: true,
+       initializer: fn ->
+         [%{id: :agent1, start: {Agent, :start_link, [fn -> 0 end, [name: :agent1]]}}]
+       end}
+    )
+
+    assert 0 == Agent.get(:agent1, fn s -> s end)
   end
 end
 

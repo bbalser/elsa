@@ -188,25 +188,19 @@ defmodule Elsa.Supervisor do
       {Elsa.DynamicProcessManager,
        id: :worker_process_manager,
        dynamic_supervisor: dynamic_supervisor(registry),
-       initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}
-      }
+       initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}}
     ]
   end
 
   defp start_producer(_registry, nil), do: []
 
   defp start_producer(registry, args) do
-    case Keyword.keyword?(args) do
-      true -> producer_child_spec(registry, args)
-      false -> Enum.map(args, fn entry -> producer_child_spec(registry, entry) end)
-    end
-  end
-
-  defp producer_child_spec(registry, args) do
-    producer_args =
-      args
-      |> Keyword.put(:registry, registry)
-
-    {Elsa.Producer.Supervisor, producer_args}
+    [
+      {Elsa.DynamicProcessManager,
+       id: :producer_process_manager,
+       synchronous: true,
+       dynamic_supervisor: dynamic_supervisor(registry),
+       initializer: {Elsa.Producer.Initializer, :init, [registry, args]}}
+    ]
   end
 end
