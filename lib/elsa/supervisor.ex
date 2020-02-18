@@ -198,9 +198,9 @@ defmodule Elsa.Supervisor do
     [
       {Elsa.DynamicProcessManager,
        id: :producer_process_manager,
-       synchronous: true,
        dynamic_supervisor: dynamic_supervisor(registry),
-       initializer: {Elsa.Producer.Initializer, :init, [registry, args]}}
+       initializer: {Elsa.Producer.Initializer, :init, [registry, args]},
+       name: via_name(registry, :producer_process_manager)}
     ]
   end
 end

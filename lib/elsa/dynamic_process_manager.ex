@@ -9,16 +9,21 @@ defmodule Elsa.DynamicProcessManager do
   end
 
   def start_link(init_arg) do
-    name = Keyword.get(init_arg, :name, nil)
-    GenServer.start_link(__MODULE__, init_arg, name: name)
+    server_opts = Keyword.take(init_arg, [:name])
+    GenServer.start_link(__MODULE__, init_arg, server_opts)
   end
 
   def child_spec(init_arg) do
     id = Keyword.fetch!(init_arg, :id)
+
     %{
       id: id,
       start: {__MODULE__, :start_link, [init_arg]}
     }
+  end
+
+  def ready?(server, timeout \\ 10_000) do
+    GenServer.call(server, :ready?, timeout)
   end
 
   def init(init_arg) do
@@ -41,7 +46,9 @@ defmodule Elsa.DynamicProcessManager do
       end
 
     case synchronous? do
-      false -> {:ok, state, {:continue, {:initialize, initializer}}}
+      false ->
+        {:ok, state, {:continue, {:initialize, initializer}}}
+
       true ->
         {:noreply, new_state} = handle_continue({:initialize, initializer}, state)
         {:ok, new_state}
@@ -61,6 +68,10 @@ defmodule Elsa.DynamicProcessManager do
   def handle_call({:start_child, child}, _from, state) do
     output = DynamicSupervisor.start_child(state.dynamic_supervisor, child)
     {:reply, output, Map.update!(state, :child_specs, fn specs -> specs ++ [child] end)}
+  end
+
+  def handle_call(:ready?, _from, state) do
+    {:reply, true, state}
   end
 
   def handle_info({:DOWN, ref, _, _, _}, %{dynamic_supervisor_ref: ref} = state) do
@@ -89,6 +100,12 @@ defmodule Elsa.DynamicProcessManager do
     initializer.()
   rescue
     e ->
+      Logger.warn(fn -> "#{__MODULE__}: initializer raised exception, retrying: #{inspect(e)}" end)
+
+      Process.sleep(1_000)
+      run_initializer(initializer)
+  catch
+    :exit, e ->
       Logger.warn(fn -> "#{__MODULE__}: initializer raised exception, retrying: #{inspect(e)}" end)
 
       Process.sleep(1_000)
