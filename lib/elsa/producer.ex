@@ -25,7 +25,7 @@ defmodule Elsa.Producer do
           Elsa.topic(),
           {term(), term()} | term() | [{term(), term()}] | [term()],
           keyword()
-        ) :: :ok | {:error, String.t(), [Elsa.Message.elsa_message()]}
+        ) :: :ok | {:error, term} | {:error, String.t(), [Elsa.Message.elsa_message()]}
   def produce(endpoints_or_connection, topic, messages, opts \\ [])
 
   def produce(endpoints, topic, messages, opts) when is_list(endpoints) do
@@ -34,10 +34,7 @@ defmodule Elsa.Producer do
 
     case Process.whereis(registry) do
       nil ->
-        {:ok, pid} = Elsa.Supervisor.start_link(endpoints: endpoints, connection: connection, producer: [topic: topic])
-        produce(connection, topic, messages, opts)
-        Process.unlink(pid)
-        Supervisor.stop(pid)
+        ad_hoc_produce(endpoints, connection, topic, messages, opts)
 
       _pid ->
         produce(connection, topic, messages, opts)
@@ -53,6 +50,22 @@ defmodule Elsa.Producer do
 
   def produce(connection, topic, message, opts) when is_atom(connection) do
     do_produce_sync(connection, topic, [transform_message(message)], opts)
+  end
+
+  def ready?(connection) do
+    registry = Elsa.Supervisor.registry(connection)
+    via = Elsa.Supervisor.via_name(registry, :producer_process_manager)
+    Elsa.DynamicProcessManager.ready?(via)
+  end
+
+  defp ad_hoc_produce(endpoints, connection, topic, messages, opts) do
+    with {:ok, pid} <-
+           Elsa.Supervisor.start_link(endpoints: endpoints, connection: connection, producer: [topic: topic]) do
+      ready?(connection)
+      produce(connection, topic, messages, opts)
+      Process.unlink(pid)
+      Supervisor.stop(pid)
+    end
   end
 
   defp transform_message(%{key: _key, value: _value} = msg), do: msg

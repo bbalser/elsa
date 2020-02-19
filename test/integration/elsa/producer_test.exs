@@ -20,6 +20,8 @@ defmodule Elsa.ProducerTest do
       {:ok, supervisor} =
         Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
 
+      Elsa.Producer.ready?(connection)
+
       on_exit(fn ->
         assert_down(supervisor)
       end)
@@ -111,6 +113,8 @@ defmodule Elsa.ProducerTest do
 
       {:ok, supervisor} =
         Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
+
+      Elsa.Producer.ready?(connection)
 
       on_exit(fn -> assert_down(supervisor) end)
 

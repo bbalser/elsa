@@ -23,6 +23,10 @@ defmodule Elsa.Supervisor do
     {:via, Elsa.Registry, {registry, name}}
   end
 
+  def dynamic_supervisor(registry) do
+    via_name(registry, DynamicSupervisor)
+  end
+
   @doc """
   Starts the top-level Elsa supervisor and links it to the current process.
   Starts a brod client and a custom process registry by default
@@ -128,6 +132,7 @@ defmodule Elsa.Supervisor do
     children =
       [
         {Elsa.Registry, name: registry},
+        {DynamicSupervisor, strategy: :one_for_one, name: dynamic_supervisor(registry)},
         start_client(args),
         start_producer(registry, Keyword.get(args, :producer)),
         start_group_consumer(connection, registry, Keyword.get(args, :group_consumer)),
@@ -162,36 +167,40 @@ defmodule Elsa.Supervisor do
   defp start_consumer(_connection, _registry, nil), do: []
 
   defp start_consumer(connection, registry, args) do
+    topics =
+      case Keyword.has_key?(args, :partition) do
+        true -> [{Keyword.fetch!(args, :topic), Keyword.fetch!(args, :partition)}]
+        false -> [Keyword.fetch!(args, :topic)]
+      end
+
     consumer_args =
       args
       |> Keyword.put(:registry, registry)
       |> Keyword.put(:connection, connection)
+      |> Keyword.put(:topics, topics)
       |> Keyword.put_new(:config, [])
 
     [
-      {Elsa.Consumer.Supervisor, named_args(consumer_args, registry, Elsa.Consumer.Supervisor)},
-      {Elsa.Consumer.WorkerSupervisor, consumer_args}
+      {Elsa.DynamicProcessManager,
+       id: :consumer_process_manager,
+       dynamic_supervisor: dynamic_supervisor(registry),
+       initializer: {Elsa.Consumer.Initializer, :init, [consumer_args]}},
+      {Elsa.DynamicProcessManager,
+       id: :worker_process_manager,
+       dynamic_supervisor: dynamic_supervisor(registry),
+       initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}}
     ]
-  end
-
-  defp named_args(args, registry, name) do
-    Keyword.put(args, :name, via_name(registry, name))
   end
 
   defp start_producer(_registry, nil), do: []
 
   defp start_producer(registry, args) do
-    case Keyword.keyword?(args) do
-      true -> producer_child_spec(registry, args)
-      false -> Enum.map(args, fn entry -> producer_child_spec(registry, entry) end)
-    end
-  end
-
-  defp producer_child_spec(registry, args) do
-    producer_args =
-      args
-      |> Keyword.put(:registry, registry)
-
-    {Elsa.Producer.Supervisor, producer_args}
+    [
+      {Elsa.DynamicProcessManager,
+       id: :producer_process_manager,
+       dynamic_supervisor: dynamic_supervisor(registry),
+       initializer: {Elsa.Producer.Initializer, :init, [registry, args]},
+       name: via_name(registry, :producer_process_manager)}
+    ]
   end
 end

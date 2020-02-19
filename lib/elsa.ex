@@ -7,13 +7,13 @@ defmodule Elsa do
   """
 
   @typedoc "named connection, must be an atom"
-  @type connection :: atom()
-  @type hostname :: atom() | String.t()
-  @type portnum :: pos_integer()
+  @type connection :: atom
+  @type hostname :: atom | String.t()
+  @type portnum :: pos_integer
   @typedoc "endpoints to connect to kafka brokers"
-  @type endpoints :: [{hostname(), portnum()}]
+  @type endpoints :: [{hostname, portnum}]
   @type topic :: String.t()
-  @type partition :: integer()
+  @type partition :: non_neg_integer
 
   defdelegate list_topics(endpoints), to: Elsa.Topic, as: :list
 
