@@ -53,7 +53,7 @@ defmodule Elsa.Consumer.Worker do
           generation_id: non_neg_integer,
           begin_offset: non_neg_integer,
           handler: module,
-          handler_init_args: list,
+          handler_init_args: term,
           config: :brod.consumer_options()
         ]
 
