@@ -40,8 +40,7 @@ defmodule Elsa.Consumer.Worker.Initializer do
      init_arg
      |> Keyword.put(:name, {:via, Elsa.Registry, {registry, name}})
      |> Keyword.put(:topic, topic)
-     |> Keyword.put(:partition, partition)
-     |> IO.inspect()}
+     |> Keyword.put(:partition, partition)}
     |> Supervisor.child_spec(id: name)
   end
 end

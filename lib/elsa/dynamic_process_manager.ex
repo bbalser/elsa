@@ -58,7 +58,7 @@ defmodule Elsa.DynamicProcessManager do
   def handle_continue({:initialize, initializer}, state) do
     new_state =
       Map.update!(state, :child_specs, fn specs ->
-        specs ++ run_initializer(initializer)
+        specs ++ initialize_until_success(initializer)
       end)
 
     start_children(new_state)
@@ -96,20 +96,20 @@ defmodule Elsa.DynamicProcessManager do
     end)
   end
 
-  defp run_initializer(initializer) do
+  defp initialize_until_success(initializer) do
     initializer.()
   rescue
     e ->
       Logger.warn(fn -> "#{__MODULE__}: initializer raised exception, retrying: #{inspect(e)}" end)
 
       Process.sleep(1_000)
-      run_initializer(initializer)
+      initialize_until_success(initializer)
   catch
     :exit, e ->
       Logger.warn(fn -> "#{__MODULE__}: initializer raised exception, retrying: #{inspect(e)}" end)
 
       Process.sleep(1_000)
-      run_initializer(initializer)
+      initialize_until_success(initializer)
   end
 
   defp whereis(name) when is_atom(name) do
