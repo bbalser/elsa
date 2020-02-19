@@ -5,7 +5,7 @@ defmodule Elsa.Group.Manager do
   Tracks consumer group state and reinstantiates workers to
   the last unacknowledged message in the event of failure.
   """
-  use GenServer
+  use GenServer, shutdown: 5 * 60_000
   require Logger
   import Record, only: [defrecord: 2, extract: 2]
   import Elsa.Supervisor, only: [registry: 1]
@@ -89,6 +89,8 @@ defmodule Elsa.Group.Manager do
       :topics,
       :config,
       :supervisor_pid,
+      :group_coordinator_pid,
+      :acknowledger_pid,
       :assignment_received_handler,
       :assignments_revoked_handler,
       :start_time,
@@ -154,7 +156,17 @@ defmodule Elsa.Group.Manager do
       workers: %{}
     }
 
-    {:ok, state}
+    {:ok, state, {:continue, :initialize}}
+  end
+
+  def handle_continue(:initialize, state) do
+    with {:ok, group_coordinator_pid} <- start_group_coordinator(state),
+         {:ok, acknowledger_pid} <- start_acknowledger(state) do
+      {:noreply, %{state | group_coordinator_pid: group_coordinator_pid, acknowledger_pid: acknowledger_pid}}
+    else
+      {:error, reason} ->
+        {:stop, reason, state}
+    end
   end
 
   def handle_call({:process_assignments, _member_id, generation_id, assignments}, _from, state) do
@@ -175,7 +187,7 @@ defmodule Elsa.Group.Manager do
 
   def handle_call(:revoke_assignments, _from, state) do
     Logger.info("Assignments revoked for group #{state.group}")
-    new_workers = WorkerManager.stop_all_workers(state.workers)
+    new_workers = WorkerManager.stop_all_workers(state.connection, state.workers)
     :ok = apply(state.assignments_revoked_handler, [])
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
@@ -197,7 +209,10 @@ defmodule Elsa.Group.Manager do
 
   def terminate(reason, state) do
     Logger.info("#{__MODULE__} : Terminating #{state.connection}")
-    WorkerManager.stop_all_workers(state.workers)
+    WorkerManager.stop_all_workers(state.connection, state.workers)
+
+    shutdown_and_wait(state.acknowledger_pid)
+    shutdown_and_wait(state.group_coordinator_pid)
 
     reason
   end
@@ -215,5 +230,35 @@ defmodule Elsa.Group.Manager do
     Enum.reduce(assignments, state.workers, fn assignment, workers ->
       WorkerManager.start_worker(workers, generation_id, assignment, state)
     end)
+  end
+
+  defp start_group_coordinator(state) do
+    with {:ok, group_coordinator_pid} <-
+           :brod_group_coordinator.start_link(
+             state.connection,
+             state.group,
+             state.topics,
+             state.config,
+             __MODULE__,
+             self()
+           ) do
+      Elsa.Registry.register_name({registry(state.connection), :brod_group_coordinator}, group_coordinator_pid)
+      {:ok, group_coordinator_pid}
+    end
+  end
+
+  defp start_acknowledger(state) do
+    Elsa.Group.Acknowledger.start_link(connection: state.connection)
+  end
+
+  defp shutdown_and_wait(pid) do
+    Process.exit(pid, :shutdown)
+
+    receive do
+      {:EXIT, ^pid, _} ->
+        :ok
+    after
+      5_000 -> :ok
+    end
   end
 end

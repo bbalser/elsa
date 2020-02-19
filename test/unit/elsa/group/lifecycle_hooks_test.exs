@@ -12,7 +12,7 @@ defmodule Elsa.Group.LifecycleHooksTest do
     Agent.start_link(fn -> test_pid end, name: __MODULE__)
 
     allow WorkerManager.start_worker(any(), any(), any(), any()), return: :workers
-    allow WorkerManager.stop_all_workers(any()), return: :workers
+    allow WorkerManager.stop_all_workers(any(), any()), return: :workers
 
     test_pid = self()
 

@@ -12,7 +12,7 @@ defmodule Elsa.MixProject do
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_paths: test_paths(Mix.env()),
-      dialyzer: [flags: [:no_fail_call, :no_return, :no_fun_app], plt_file: {:no_warn, ".plt/dialyzer.plt"}]
+      dialyzer: [plt_file: {:no_warn, ".plt/dialyzer.plt"}]
     ]
   end
 

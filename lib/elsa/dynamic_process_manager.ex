@@ -40,9 +40,14 @@ defmodule Elsa.DynamicProcessManager do
 
     initializer =
       case Keyword.get(init_arg, :initializer) do
-        {module, function, args} -> fn -> apply(module, function, args) end
-        function when is_function(function, 0) -> function
-        _ -> fn -> [] end
+        {module, function, args} ->
+          fn -> apply(module, function, args) end
+
+        function when is_function(function, 0) ->
+          function
+
+        _ ->
+          fn -> [] end
       end
 
     case synchronous? do
