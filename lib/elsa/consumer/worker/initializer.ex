@@ -1,10 +1,9 @@
 defmodule Elsa.Consumer.Worker.Initializer do
-
   @type init_opts :: [
-    connection: atom(),
-    registry: atom(),
-    topics: [Elsa.topic() | {Elsa.topic(), Elsa.partition()}],
-  ]
+          connection: atom(),
+          registry: atom(),
+          topics: [Elsa.topic() | {Elsa.topic(), Elsa.partition()}]
+        ]
 
   @spec init(init_opts) :: [Supervisor.child_spec()]
   def init(init_arg) do
@@ -36,13 +35,13 @@ defmodule Elsa.Consumer.Worker.Initializer do
 
   defp child_spec(registry, topic, partition, init_arg) do
     name = :"topic_consumer_worker_#{topic}_#{partition}"
+
     {Elsa.Consumer.Worker,
      init_arg
      |> Keyword.put(:name, {:via, Elsa.Registry, {registry, name}})
      |> Keyword.put(:topic, topic)
      |> Keyword.put(:partition, partition)
-     |> IO.inspect()
-    }
+     |> IO.inspect()}
     |> Supervisor.child_spec(id: name)
   end
 end

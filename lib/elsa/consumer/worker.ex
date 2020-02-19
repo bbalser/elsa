@@ -47,15 +47,15 @@ defmodule Elsa.Consumer.Worker do
   end
 
   @type init_opts :: [
-    connection: Elsa.connection(),
-    topic: Elsa.topic(),
-    partition: Elsa.partition(),
-    generation_id: non_neg_integer,
-    begin_offset: non_neg_integer,
-    handler: module,
-    handler_init_args: list,
-    config: :brod.consumer_options()
-  ]
+          connection: Elsa.connection(),
+          topic: Elsa.topic(),
+          partition: Elsa.partition(),
+          generation_id: non_neg_integer,
+          begin_offset: non_neg_integer,
+          handler: module,
+          handler_init_args: list,
+          config: :brod.consumer_options()
+        ]
 
   @doc """
   Start the worker process and init the state with the given config.

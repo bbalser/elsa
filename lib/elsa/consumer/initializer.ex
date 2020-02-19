@@ -1,10 +1,9 @@
 defmodule Elsa.Consumer.Initializer do
-
   @type init_opts :: [
-    registry: atom(),
-    topics: [Elsa.topic() | {Elsa.topic(), Elsa.partition()}],
-    config: :brod_consumer.config()
-  ]
+          registry: atom(),
+          topics: [Elsa.topic() | {Elsa.topic(), Elsa.partition()}],
+          config: :brod_consumer.config()
+        ]
 
   @spec init(init_opts) :: [Supervisor.child_spec()]
   def init(init_arg) do

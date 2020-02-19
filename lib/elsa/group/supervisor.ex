@@ -52,11 +52,13 @@ defmodule Elsa.Group.Supervisor do
      dynamic_supervisor: dynamic_supervisor,
      initializer:
        {Elsa.Consumer.Initializer, :init,
-        [[
-          registry: registry,
-          topics: topics,
-          config: config
-        ]]}}
+        [
+          [
+            registry: registry,
+            topics: topics,
+            config: config
+          ]
+        ]}}
   end
 
   defp manager_args(args) do
