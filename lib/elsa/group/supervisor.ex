@@ -10,11 +10,11 @@ defmodule Elsa.Group.Supervisor do
   import Elsa.Supervisor, only: [registry: 1]
 
   @type init_opts :: [
-    connection: Elsa.connection(),
-    topics: [Elsa.topic()],
-    group: String.t(),
-    config: list
-  ]
+          connection: Elsa.connection(),
+          topics: [Elsa.topic()],
+          group: String.t(),
+          config: list
+        ]
 
   @spec start_link(init_opts) :: GenServer.on_start()
   def start_link(init_arg \\ []) do
@@ -30,10 +30,13 @@ defmodule Elsa.Group.Supervisor do
     registry = registry(connection)
     group = Keyword.fetch!(init_arg, :group)
 
+    group_consumer_supervisor = {:via, Elsa.Registry, {registry, :group_consumer_supervisor}}
+
     children =
       [
         {DynamicSupervisor, [strategy: :one_for_one, name: {:via, Elsa.Registry, {registry, :worker_supervisor}}]},
-        consumer_supervisors(registry, topics, config),
+        {DynamicSupervisor, [strategy: :one_for_one, name: group_consumer_supervisor]},
+        start_consumer(registry, topics, config, group_consumer_supervisor),
         {Elsa.Group.Manager, manager_args(init_arg)},
         group_coordinator(registry, connection, group, topics, config),
         {Elsa.Group.Acknowledger, init_arg}
@@ -43,10 +46,17 @@ defmodule Elsa.Group.Supervisor do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp consumer_supervisors(registry, topics, config) do
-    Enum.map(topics, fn topic ->
-      {Elsa.Consumer.Supervisor, [registry: registry, topic: topic, config: config]}
-    end)
+  defp start_consumer(registry, topics, config, dynamic_supervisor) do
+    {Elsa.DynamicProcessManager,
+     id: :group_consumer_process_manager,
+     dynamic_supervisor: dynamic_supervisor,
+     initializer:
+       {Elsa.Consumer.Initializer, :init,
+        [[
+          registry: registry,
+          topics: topics,
+          config: config
+        ]]}}
   end
 
   defp manager_args(args) do
