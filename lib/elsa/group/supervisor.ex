@@ -28,7 +28,6 @@ defmodule Elsa.Group.Supervisor do
     topics = Keyword.fetch!(init_arg, :topics)
     config = Keyword.get(init_arg, :config, [])
     registry = registry(connection)
-    group = Keyword.fetch!(init_arg, :group)
 
     group_consumer_supervisor = {:via, Elsa.Registry, {registry, :group_consumer_supervisor}}
 
@@ -37,9 +36,7 @@ defmodule Elsa.Group.Supervisor do
         {DynamicSupervisor, [strategy: :one_for_one, name: {:via, Elsa.Registry, {registry, :worker_supervisor}}]},
         {DynamicSupervisor, [strategy: :one_for_one, name: group_consumer_supervisor]},
         start_consumer(registry, topics, config, group_consumer_supervisor),
-        {Elsa.Group.Manager, manager_args(init_arg)},
-        group_coordinator(registry, connection, group, topics, config),
-        {Elsa.Group.Acknowledger, init_arg}
+        {Elsa.Group.Manager, manager_args(init_arg)}
       ]
       |> List.flatten()
 
@@ -64,19 +61,5 @@ defmodule Elsa.Group.Supervisor do
   defp manager_args(args) do
     args
     |> Keyword.put(:supervisor_pid, self())
-  end
-
-  defp group_coordinator(registry, connection, group, topics, config) do
-    manager = {:via, Elsa.Registry, {registry, Elsa.Group.Manager}}
-
-    wrapper_args = [
-      mfa: {:brod_group_coordinator, :start_link, [connection, group, topics, config, Elsa.Group.Manager, manager]},
-      register: {registry, :brod_group_coordinator}
-    ]
-
-    %{
-      id: :brod_group_coordinator,
-      start: {Elsa.Wrapper, :start_link, [wrapper_args]}
-    }
   end
 end

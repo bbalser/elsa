@@ -30,7 +30,6 @@ defmodule Elsa.DynamicProcessManager do
     Process.flag(:trap_exit, true)
 
     dynamic_supervisor = Keyword.fetch!(init_arg, :dynamic_supervisor)
-    synchronous? = Keyword.get(init_arg, :synchronous, false)
 
     state = %{
       dynamic_supervisor: dynamic_supervisor,
@@ -40,19 +39,17 @@ defmodule Elsa.DynamicProcessManager do
 
     initializer =
       case Keyword.get(init_arg, :initializer) do
-        {module, function, args} -> fn -> apply(module, function, args) end
-        function when is_function(function, 0) -> function
-        _ -> fn -> [] end
+        {module, function, args} ->
+          fn -> apply(module, function, args) end
+
+        function when is_function(function, 0) ->
+          function
+
+        _ ->
+          fn -> [] end
       end
 
-    case synchronous? do
-      false ->
-        {:ok, state, {:continue, {:initialize, initializer}}}
-
-      true ->
-        {:noreply, new_state} = handle_continue({:initialize, initializer}, state)
-        {:ok, new_state}
-    end
+    {:ok, state, {:continue, {:initialize, initializer}}}
   end
 
   def handle_continue({:initialize, initializer}, state) do
@@ -70,6 +67,8 @@ defmodule Elsa.DynamicProcessManager do
     {:reply, output, Map.update!(state, :child_specs, fn specs -> specs ++ [child] end)}
   end
 
+  # When handle_continue has completed this process can
+  # reply to this message and is therefore ready.
   def handle_call(:ready?, _from, state) do
     {:reply, true, state}
   end

@@ -29,10 +29,12 @@ defmodule Elsa.Consumer.MessageHandler do
     quote do
       @behaviour Elsa.Consumer.MessageHandler
 
+      @impl Elsa.Consumer.MessageHandler
       def init(args) do
         {:ok, args}
       end
 
+      @impl Elsa.Consumer.MessageHandler
       def handle_messages(messages, state) do
         case handle_messages(messages) do
           :ack -> {:ack, state}
@@ -45,6 +47,7 @@ defmodule Elsa.Consumer.MessageHandler do
         end
       end
 
+      @impl Elsa.Consumer.MessageHandler
       def handle_messages(messages) do
         :ack
       end

@@ -29,13 +29,16 @@ defmodule Elsa.Group.Manager.WorkerManager do
   Iterate over all workers managed by the group manager and issue the unsubscribe call
   to disengage from the topic/partition and shut down gracefully.
   """
-  @spec stop_all_workers(map()) :: map()
-  def stop_all_workers(workers) do
+  @spec stop_all_workers(Elsa.connection(), map()) :: map()
+  def stop_all_workers(connection, workers) do
+    supervisor = {:via, Elsa.Registry, {registry(connection), :worker_supervisor}}
+
     workers
     |> Map.values()
     |> Enum.each(fn worker ->
       Process.demonitor(worker.ref)
       Elsa.Consumer.Worker.unsubscribe(worker.pid)
+      DynamicSupervisor.terminate_child(supervisor, worker.pid)
     end)
 
     %{}

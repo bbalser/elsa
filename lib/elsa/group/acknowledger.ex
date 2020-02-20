@@ -12,7 +12,7 @@ defmodule Elsa.Group.Acknowledger do
   @doc """
   Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), Elsa.topic(), Elsa.partition(), Elsa.Group.Manager.generation_id(), integer()) :: :ok
+  @spec ack(Elsa.connection(), Elsa.topic(), Elsa.partition(), Elsa.Group.Manager.generation_id(), integer()) :: :ok
   def ack(connection, topic, partition, generation_id, offset) do
     acknowledger = {:via, Elsa.Registry, {registry(connection), __MODULE__}}
     GenServer.cast(acknowledger, {:ack, topic, partition, generation_id, offset})
@@ -21,7 +21,7 @@ defmodule Elsa.Group.Acknowledger do
   @doc """
   Trigger acknowledgement of processed messages back to the cluster.
   """
-  @spec ack(String.t(), %{
+  @spec ack(Elsa.connection(), %{
           topic: Elsa.topic(),
           partition: Elsa.partition(),
           generation_id: Elsa.Group.Manager.generation_id(),

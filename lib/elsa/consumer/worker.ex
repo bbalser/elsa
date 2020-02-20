@@ -6,7 +6,7 @@ defmodule Elsa.Consumer.Worker do
   passed in from the manager before calling the ack function to
   notify the cluster the messages have been successfully processed.
   """
-  use GenServer, restart: :temporary
+  use GenServer, restart: :temporary, shutdown: 10_000
   require Logger
 
   import Elsa.Supervisor, only: [registry: 1]
@@ -43,7 +43,7 @@ defmodule Elsa.Consumer.Worker do
   """
   @spec unsubscribe(pid()) :: {:stop, :normal, term(), struct()}
   def unsubscribe(pid) do
-    GenServer.call(pid, :unsubscribe)
+    GenServer.call(pid, :unsubscribe, 10_000)
   end
 
   @type init_opts :: [
@@ -134,7 +134,7 @@ defmodule Elsa.Consumer.Worker do
   end
 
   def handle_call(:unsubscribe, _from, state) do
-    result = :brod.unsubscribe(state.connection, state.topic, state.partition)
+    result = Elsa.Consumer.unsubscribe(state.connection, state.topic, state.partition)
     {:stop, :normal, result, state}
   end
 

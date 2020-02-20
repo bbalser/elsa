@@ -21,6 +21,13 @@ defmodule Elsa.Consumer do
     end
   end
 
+  @spec unsubscribe(Elsa.connection(), Elsa.topic(), Elsa.partition()) :: {:ok, pid} | {:error, term}
+  def unsubscribe(connection, topic, partition) do
+    pid = get_consumer(connection, topic, partition)
+
+    :brod_consumer.unsubscribe(pid, self())
+  end
+
   @doc """
   Retrieves a process id of a consumer registered to the
   Elsa Registry and performs a consume-ack of the messages
