@@ -52,6 +52,8 @@ defmodule Elsa.Supervisor do
 
   * `:topic` - Required. Producer will be started for configured topic.
 
+  * `:poll` - Optional. If set to a number in milliseconds, will poll for new partitions and startup producers on the fly.
+
   * `:config` - Optional. Producer configuration options passed to `brod_producer`.
 
 
@@ -72,6 +74,8 @@ defmodule Elsa.Supervisor do
   * `:assignments_revoked_handler` - Optional. Zero arity function that will be called when assignments are revoked.
     All workers will be shutdown before callback is invoked and must return `:ok`.
 
+  * `:poll` - Optional. If set to number of milliseconds, will poll for new partitions and startup new consumers on the fly.
+
   * `:config` - Optional. Consumer configuration options passed to `brod_consumer`.
 
 
@@ -86,6 +90,8 @@ defmodule Elsa.Supervisor do
   * `:partition` - Optional. Topic partition to subscribe to. If `nil`, will default to all partitions.
 
   * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
+
+  * `:poll` - Optional. If set to number of milliseconds, will poll for new partitions and startup consumers on the fly.
 
 
   ## Example
@@ -184,10 +190,12 @@ defmodule Elsa.Supervisor do
       {Elsa.DynamicProcessManager,
        id: :consumer_process_manager,
        dynamic_supervisor: dynamic_supervisor(registry),
+       poll: Keyword.get(args, :poll, false),
        initializer: {Elsa.Consumer.Initializer, :init, [consumer_args]}},
       {Elsa.DynamicProcessManager,
        id: :worker_process_manager,
        dynamic_supervisor: dynamic_supervisor(registry),
+       poll: Keyword.get(args, :poll, false),
        initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}}
     ]
   end
@@ -200,6 +208,7 @@ defmodule Elsa.Supervisor do
        id: :producer_process_manager,
        dynamic_supervisor: dynamic_supervisor(registry),
        initializer: {Elsa.Producer.Initializer, :init, [registry, args]},
+       poll: Keyword.get(args, :poll, false),
        name: via_name(registry, :producer_process_manager)}
     ]
   end

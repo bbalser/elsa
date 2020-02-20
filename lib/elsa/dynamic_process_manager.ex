@@ -31,12 +31,6 @@ defmodule Elsa.DynamicProcessManager do
 
     dynamic_supervisor = Keyword.fetch!(init_arg, :dynamic_supervisor)
 
-    state = %{
-      dynamic_supervisor: dynamic_supervisor,
-      dynamic_supervisor_ref: whereis(dynamic_supervisor) |> Process.monitor(),
-      child_specs: Keyword.get(init_arg, :children, [])
-    }
-
     initializer =
       case Keyword.get(init_arg, :initializer) do
         {module, function, args} ->
@@ -49,16 +43,23 @@ defmodule Elsa.DynamicProcessManager do
           fn -> [] end
       end
 
-    {:ok, state, {:continue, {:initialize, initializer}}}
+    state = %{
+      dynamic_supervisor: dynamic_supervisor,
+      dynamic_supervisor_ref: whereis(dynamic_supervisor) |> Process.monitor(),
+      poll: Keyword.get(init_arg, :poll, false),
+      initializer: initializer,
+      child_specs: Keyword.get(init_arg, :children, [])
+    }
+
+    {:ok, state, {:continue, :initialize}}
   end
 
-  def handle_continue({:initialize, initializer}, state) do
-    new_state =
-      Map.update!(state, :child_specs, fn specs ->
-        specs ++ initialize_until_success(initializer)
-      end)
+  def handle_continue(:initialize, state) do
+    start_children(state.dynamic_supervisor, state.child_specs)
 
-    start_children(new_state)
+    new_state = start_new_children(state)
+    setup_poll(state.poll)
+
     {:noreply, new_state}
   end
 
@@ -73,6 +74,13 @@ defmodule Elsa.DynamicProcessManager do
     {:reply, true, state}
   end
 
+  def handle_info(:poll, state) do
+    Logger.debug(fn -> "#{__MODULE__} for #{inspect(state.dynamic_supervisor)}: Polling for new children" end)
+    new_state = start_new_children(state)
+    setup_poll(state.poll)
+    {:noreply, new_state}
+  end
+
   def handle_info({:DOWN, ref, _, _, _}, %{dynamic_supervisor_ref: ref} = state) do
     Logger.info(fn ->
       "#{__MODULE__}: Dynamic Supervisor #{state.dynamic_supervisor} has died, restarting recorded children"
@@ -80,14 +88,23 @@ defmodule Elsa.DynamicProcessManager do
 
     wait_for(state.dynamic_supervisor)
 
-    start_children(state)
+    start_children(state.dynamic_supervisor, state.child_specs)
     {:noreply, state}
   end
 
-  defp start_children(state) do
-    state.child_specs
+  defp start_new_children(state) do
+    new_child_specs = initialize_until_success(state.initializer) -- state.child_specs
+    start_children(state.dynamic_supervisor, new_child_specs)
+
+    Map.update!(state, :child_specs, fn specs ->
+      specs ++ new_child_specs
+    end)
+  end
+
+  defp start_children(supervisor, child_specs) do
+    child_specs
     |> Enum.each(fn child ->
-      output = DynamicSupervisor.start_child(state.dynamic_supervisor, child)
+      output = DynamicSupervisor.start_child(supervisor, child)
 
       Logger.debug(fn ->
         "#{__MODULE__}: output of starting #{inspect(child)}: #{inspect(output)}"
@@ -110,6 +127,12 @@ defmodule Elsa.DynamicProcessManager do
       Process.sleep(1_000)
       initialize_until_success(initializer)
   end
+
+  defp setup_poll(time) when is_integer(time) do
+    :timer.send_after(time, :poll)
+  end
+
+  defp setup_poll(_), do: nil
 
   defp whereis(name) when is_atom(name) do
     Process.whereis(name)

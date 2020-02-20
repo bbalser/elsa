@@ -105,9 +105,19 @@ defmodule Elsa.Util do
   Return the number of partitions for a given topic. Bypasses the need for a persistent client
   for lighter weight interactions from one-off calls.
   """
-  @spec partition_count(keyword(), String.t()) :: integer()
-  def partition_count(endpoints, topic) do
+  @spec partition_count(keyword | Elsa.connection() | pid, String.t()) :: integer()
+  def partition_count(endpoints, topic) when is_list(endpoints) do
     {:ok, metadata} = :brod.get_metadata(reformat_endpoints(endpoints), [topic])
+
+    metadata.topic_metadata
+    |> Enum.map(fn topic_metadata ->
+      Enum.count(topic_metadata.partition_metadata)
+    end)
+    |> hd()
+  end
+
+  def partition_count(connection, topic) when is_atom(connection) or is_pid(connection) do
+    {:ok, metadata} = :brod_client.get_metadata(connection, topic)
 
     metadata.topic_metadata
     |> Enum.map(fn topic_metadata ->

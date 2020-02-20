@@ -28,6 +28,7 @@ defmodule Elsa.Group.Supervisor do
     topics = Keyword.fetch!(init_arg, :topics)
     config = Keyword.get(init_arg, :config, [])
     registry = registry(connection)
+    poll = Keyword.get(init_arg, :poll, false)
 
     group_consumer_supervisor = {:via, Elsa.Registry, {registry, :group_consumer_supervisor}}
 
@@ -35,7 +36,7 @@ defmodule Elsa.Group.Supervisor do
       [
         {DynamicSupervisor, [strategy: :one_for_one, name: {:via, Elsa.Registry, {registry, :worker_supervisor}}]},
         {DynamicSupervisor, [strategy: :one_for_one, name: group_consumer_supervisor]},
-        start_consumer(registry, topics, config, group_consumer_supervisor),
+        start_consumer(registry, topics, config, group_consumer_supervisor, poll),
         {Elsa.Group.Manager, manager_args(init_arg)}
       ]
       |> List.flatten()
@@ -43,10 +44,11 @@ defmodule Elsa.Group.Supervisor do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp start_consumer(registry, topics, config, dynamic_supervisor) do
+  defp start_consumer(registry, topics, config, dynamic_supervisor, poll) do
     {Elsa.DynamicProcessManager,
      id: :group_consumer_process_manager,
      dynamic_supervisor: dynamic_supervisor,
+     poll: poll,
      initializer:
        {Elsa.Consumer.Initializer, :init,
         [

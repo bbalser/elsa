@@ -23,11 +23,11 @@ defmodule Elsa.Consumer.Initializer do
   end
 
   defp configure_topic(topic, registry, brod_client, config) do
-    :brod_client.get_partitions_count(brod_client, topic)
+    Elsa.Util.partition_count(brod_client, topic)
     |> to_child_specs(registry, brod_client, topic, config)
   end
 
-  defp to_child_specs({:ok, partitions}, registry, brod_client, topic, config) do
+  defp to_child_specs(partitions, registry, brod_client, topic, config) do
     0..(partitions - 1)
     |> Enum.map(fn partition ->
       child_spec(registry, brod_client, topic, partition, config)
