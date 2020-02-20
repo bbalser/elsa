@@ -91,7 +91,7 @@ defmodule Elsa.Supervisor do
 
   * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
 
-  * `:poll` - Optional, If set to number of milliseconds, will poll for new partitions and startup consumers on the fly.
+  * `:poll` - Optional. If set to number of milliseconds, will poll for new partitions and startup consumers on the fly.
 
 
   ## Example
