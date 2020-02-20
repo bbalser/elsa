@@ -121,14 +121,15 @@ end
 defmodule PollingInitializer do
   def initialize() do
     specs = [
-      %{id: :agent1, start: {Agent, :start_link, [fn -> 1 end, [name: :agent1]]}},
+      %{id: :agent1, start: {Agent, :start_link, [fn -> 1 end, [name: :agent1]]}}
     ]
 
     case Agent.get_and_update(:retry_counter, fn s -> {s, s - 1} end) do
       0 ->
-        specs ++ [
-          %{id: :agent2, start: {Agent, :start_link, [fn -> 2 end, [name: :agent2]]}}
-        ]
+        specs ++
+          [
+            %{id: :agent2, start: {Agent, :start_link, [fn -> 2 end, [name: :agent2]]}}
+          ]
 
       _ ->
         specs

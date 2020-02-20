@@ -24,6 +24,7 @@ defmodule Elsa.Consumer.Initializer do
 
   defp configure_topic(topic, registry, brod_client, config) do
     :brod_client.get_metadata(brod_client, topic)
+
     :brod_client.get_partitions_count(brod_client, topic)
     |> to_child_specs(registry, brod_client, topic, config)
   end

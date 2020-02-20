@@ -48,7 +48,7 @@ defmodule Elsa.DynamicProcessManager do
       dynamic_supervisor_ref: whereis(dynamic_supervisor) |> Process.monitor(),
       poll: Keyword.get(init_arg, :poll, false),
       initializer: initializer,
-      child_specs: Keyword.get(init_arg, :children, []),
+      child_specs: Keyword.get(init_arg, :children, [])
     }
 
     {:ok, state, {:continue, :initialize}}
