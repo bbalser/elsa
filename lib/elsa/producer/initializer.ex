@@ -19,6 +19,7 @@ defmodule Elsa.Producer.Initializer do
     topic = Keyword.fetch!(producer_config, :topic)
     config = Keyword.get(producer_config, :config, [])
 
+    :brod_client.get_metadata(brod_client, topic)
     {:ok, partitions} = :brod_client.get_partitions_count(brod_client, topic)
 
     0..(partitions - 1)
