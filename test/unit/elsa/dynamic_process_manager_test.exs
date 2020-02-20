@@ -68,23 +68,6 @@ defmodule Elsa.DynamicProcessManagerTest do
     Process.sleep(2_000)
     assert 0 == Agent.get(:agent1, fn s -> s end)
   end
-
-  test "can opt to start processes synchronously" do
-    start_supervised({DynamicSupervisor, strategy: :one_for_one, name: :dyn_sup})
-
-    start_supervised(
-      {Elsa.DynamicProcessManager,
-       id: :pm,
-       name: :pm,
-       dynamic_supervisor: :dyn_sup,
-       synchronous: true,
-       initializer: fn ->
-         [%{id: :agent1, start: {Agent, :start_link, [fn -> 0 end, [name: :agent1]]}}]
-       end}
-    )
-
-    assert 0 == Agent.get(:agent1, fn s -> s end)
-  end
 end
 
 defmodule TestInitializer do
