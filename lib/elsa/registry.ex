@@ -15,7 +15,7 @@ defmodule Elsa.Registry do
   Register the pid of a process to the registry under
   a given name.
   """
-  @spec register_name({atom(), term()}, pid()) :: :ok
+  @spec register_name({atom(), term()}, pid()) :: :yes
   def register_name({registry, key}, pid) do
     GenServer.call(registry, {:register, key, pid})
   end
