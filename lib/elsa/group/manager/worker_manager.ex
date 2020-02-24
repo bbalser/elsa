@@ -37,7 +37,6 @@ defmodule Elsa.Group.Manager.WorkerManager do
     |> Map.values()
     |> Enum.each(fn worker ->
       Process.demonitor(worker.ref)
-      Elsa.Consumer.Worker.unsubscribe(worker.pid)
       DynamicSupervisor.terminate_child(supervisor, worker.pid)
     end)
 

@@ -28,22 +28,12 @@ defmodule Elsa.Consumer.Worker do
       :partition,
       :generation_id,
       :offset,
-      :subscriber_pid,
       :handler,
       :handler_init_args,
       :handler_state,
-      :config
+      :config,
+      :consumer_pid
     ]
-  end
-
-  @doc """
-  Trigger the worker to gracefully disengage itself
-  from the supervision tree, unsubscribe from the topic
-  and partition and initiate its own stop sequence.
-  """
-  @spec unsubscribe(pid()) :: {:stop, :normal, term(), struct()}
-  def unsubscribe(pid) do
-    GenServer.call(pid, :unsubscribe, 10_000)
   end
 
   @type init_opts :: [
@@ -66,6 +56,8 @@ defmodule Elsa.Consumer.Worker do
   end
 
   def init(init_args) do
+    Process.flag(:trap_exit, true)
+
     state = %State{
       connection: Keyword.fetch!(init_args, :connection),
       topic: Keyword.fetch!(init_args, :topic),
@@ -84,15 +76,18 @@ defmodule Elsa.Consumer.Worker do
 
     Elsa.Registry.register_name({registry(state.connection), :"worker_#{state.topic}_#{state.partition}"}, self())
 
-    {:ok, handler_state} = state.handler.init(state.handler_init_args)
-
-    {:ok, %{state | handler_state: handler_state}, {:continue, :subscribe}}
+    {:ok, state, {:continue, :subscribe}}
   end
 
   def handle_continue(:subscribe, state) do
-    with {:ok, pid} <- subscribe(state) do
-      Process.monitor(pid)
-      {:noreply, %{state | subscriber_pid: pid}}
+    registry = registry(state.connection)
+
+    with {:ok, consumer_pid} <- start_consumer(state.connection, state.topic, state.partition, state.config),
+         :yes <- Elsa.Registry.register_name({registry, :"consumer_#{state.topic}_#{state.partition}"}, consumer_pid),
+         :ok <- subscribe(consumer_pid, state) do
+      {:ok, handler_state} = state.handler.init(state.handler_init_args)
+
+      {:noreply, %{state | consumer_pid: consumer_pid, handler_state: handler_state}}
     else
       {:error, reason} ->
         Logger.warn(
@@ -124,18 +119,19 @@ defmodule Elsa.Consumer.Worker do
 
       {:continue, new_handler_state} ->
         offset = transformed_messages |> List.last() |> Map.get(:offset)
-        :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
+        :ok = :brod_consumer.ack(state.consumer_pid, offset)
         {:noreply, %{state | handler_state: new_handler_state}}
     end
   end
 
-  def handle_info({:DOWN, _ref, :process, _pid, _message}, state) do
-    {:stop, :brod_consumer_stopped, state}
+  def handle_info({:EXIT, _pid, reason}, state) do
+    {:stop, reason, state}
   end
 
-  def handle_call(:unsubscribe, _from, state) do
-    result = Elsa.Consumer.unsubscribe(state.connection, state.topic, state.partition)
-    {:stop, :normal, result, state}
+  def terminate(reason, state) do
+    :brod_consumer.unsubscribe(state.consumer_pid, self())
+    Process.exit(state.consumer_pid, reason)
+    state
   end
 
   defp transform_messages(topic, partition, messages, state) do
@@ -146,8 +142,8 @@ defmodule Elsa.Consumer.Worker do
     state.handler.handle_messages(messages, state.handler_state)
   end
 
-  defp ack_messages(topic, partition, offset, %{generation_id: nil} = state) do
-    Elsa.Consumer.ack(state.connection, topic, partition, offset)
+  defp ack_messages(_topic, _partition, offset, %{generation_id: nil} = state) do
+    :brod_consumer.ack(state.consumer_pid, offset)
   end
 
   defp ack_messages(topic, partition, offset, state) do
@@ -156,16 +152,22 @@ defmodule Elsa.Consumer.Worker do
     offset
   end
 
-  defp subscribe(state, retries \\ @subscribe_retries)
+  defp start_consumer(connection, topic, partition, config) do
+    registry = registry(connection)
+    brod_client = Elsa.Registry.whereis_name({registry, :brod_client})
+    :brod_consumer.start_link(brod_client, topic, partition, config)
+  end
 
-  defp subscribe(_state, 0) do
+  defp subscribe(consumer_pid, state, retries \\ @subscribe_retries)
+
+  defp subscribe(_consumer_pid, _state, 0) do
     {:error, :failed_subscription}
   end
 
-  defp subscribe(state, retries) do
+  defp subscribe(consumer_pid, state, retries) do
     opts = determine_subscriber_opts(state)
 
-    case Elsa.Consumer.subscribe(state.connection, state.topic, state.partition, opts) do
+    case :brod_consumer.subscribe(consumer_pid, self(), opts) do
       {:error, reason} ->
         Logger.warn(
           "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
@@ -174,11 +176,11 @@ defmodule Elsa.Consumer.Worker do
         )
 
         Process.sleep(@subscribe_delay)
-        subscribe(state, retries - 1)
+        subscribe(consumer_pid, state, retries - 1)
 
-      {:ok, consumer_pid} ->
+      :ok ->
         Logger.info("Subscribing to topic #{state.topic} partition #{state.partition} offset #{state.offset}")
-        {:ok, consumer_pid}
+        :ok
     end
   end
 

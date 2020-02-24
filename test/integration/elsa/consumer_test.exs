@@ -10,24 +10,23 @@ defmodule Elsa.ConsumerTest do
     topic = "consumer-test1"
     Elsa.create_topic(@brokers, topic, partitions: 2)
 
-    {:ok, pid} =
-      Elsa.Supervisor.start_link(
-        connection: :name1,
-        endpoints: @brokers,
-        group_consumer: [
-          group: "group1",
-          topics: [topic],
-          handler: Testing.ExampleMessageHandlerWithState,
-          handler_init_args: %{pid: self()},
-          config: [begin_offset: :earliest]
-        ]
-      )
+    start_supervised(
+      {Elsa.Supervisor,
+       connection: :name1,
+       endpoints: @brokers,
+       group_consumer: [
+         group: "group1",
+         topics: [topic],
+         handler: Testing.ExampleMessageHandlerWithState,
+         handler_init_args: %{pid: self()},
+         config: [begin_offset: :earliest]
+       ]}
+    )
 
     send_messages(topic, ["message1", "message2"])
 
     assert_receive {:message, %{topic: topic, partition: 0, offset: _, key: "", value: "message1"}}, 5_000
     assert_receive {:message, %{topic: topic, partition: 1, offset: _, key: "", value: "message2"}}, 5_000
-    Supervisor.stop(pid, :normal)
   end
 
   test "Elsa.Consumer will hand messages to the handler without state" do

@@ -95,7 +95,7 @@ defmodule Elsa.Group.Acknowledger do
     case state.generation_id == generation_id do
       true ->
         :ok = :brod_group_coordinator.ack(state.group_coordinator_pid, generation_id, topic, partition, offset)
-        :ok = Elsa.Consumer.ack(state.connection, topic, partition, offset)
+        :ok = consume_ack(state.connection, topic, partition, offset)
 
         new_offsets = update_offset(state.current_offsets, topic, partition, offset)
         {:noreply, %{state | current_offsets: new_offsets}}
@@ -109,6 +109,12 @@ defmodule Elsa.Group.Acknowledger do
 
         {:noreply, state}
     end
+  end
+
+  defp consume_ack(connection, topic, partition, offset) do
+    consumer_name = :"consumer_#{topic}_#{partition}"
+    pid = Elsa.Registry.whereis_name({registry(connection), consumer_name})
+    :brod_consumer.ack(pid, offset)
   end
 
   defp update_offset(offsets, topic, partition, offset) do
