@@ -13,6 +13,11 @@ jobs:
         with:
           otp-version: 21.3
           elixir-version: 1.8.2
+      - name: Get dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
       - name: Run formatter check
         run: |
           mix format --check-formatted
