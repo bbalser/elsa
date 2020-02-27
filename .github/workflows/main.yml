@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-elixir@v1.2.0
         with:
-          otp-version: 22.2
+          otp-version: 21.3
           elixir-version: 1.8.2
       - name: Run formatter check
         run: |
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-elixir@v1.2.0
         with:
-          otp-version: 22.2
+          otp-version: 21.3
           elixir-version: 1.8.2
       - name: Get depedencies
         run: |
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-elixir@v1.2.0
         with:
-          otp-version: 22.2
+          otp-version: 21.3
           elixir-version: 1.8.2
       - name: Get dependencies
         run: |
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-elixir@v1.2.0
         with:
-          otp-version: 22.2
+          otp-version: 21.3
           elixir-version: 1.8.2
       - name: Retrieve cached PLT
         uses: actions/cache@v1
