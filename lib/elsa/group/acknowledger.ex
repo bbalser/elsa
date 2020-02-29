@@ -43,7 +43,7 @@ defmodule Elsa.Group.Acknowledger do
   Retrieve the latest offset for a topic and partition. Primarily used for reinitializing
   consumer workers to the latest unacknowledged offset after a rebalance or other disruption.
   """
-  @spec get_latest_offset(GenServer.server(), Elsa.topic(), Elsa.partition()) :: Elsa.Group.Manager.begin_offset()
+  @spec get_latest_offset(GenServer.server(), Elsa.topic(), Elsa.partition()) :: Elsa.Group.Manager.begin_offset() | nil
   def get_latest_offset(acknowledger, topic, partition) do
     GenServer.call(acknowledger, {:get_latest_offset, topic, partition})
   end
