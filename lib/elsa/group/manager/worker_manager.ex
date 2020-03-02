@@ -57,7 +57,7 @@ defmodule Elsa.Group.Manager.WorkerManager do
         {:via, Elsa.Registry, {registry(state.connection), Elsa.Group.Acknowledger}},
         worker.topic,
         worker.partition
-      )
+      ) || worker.latest_offset
 
     assignment = brod_received_assignment(topic: worker.topic, partition: worker.partition, begin_offset: latest_offset)
 
