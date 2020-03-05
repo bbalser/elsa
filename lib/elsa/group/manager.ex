@@ -171,6 +171,7 @@ defmodule Elsa.Group.Manager do
 
   def handle_call({:process_assignments, _member_id, generation_id, assignments}, _from, state) do
     Logger.debug(fn -> "#{__MODULE__}: process assignments #{inspect(assignments)}" end)
+
     case call_lifecycle_assignment_received(state, assignments, generation_id) do
       {:error, reason} ->
         {:stop, reason, {:error, reason}, state}
