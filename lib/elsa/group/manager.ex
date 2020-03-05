@@ -170,6 +170,8 @@ defmodule Elsa.Group.Manager do
   end
 
   def handle_call({:process_assignments, _member_id, generation_id, assignments}, _from, state) do
+    Logger.debug(fn -> "#{__MODULE__}: process assignments #{inspect(assignments)}" end)
+
     case call_lifecycle_assignment_received(state, assignments, generation_id) do
       {:error, reason} ->
         {:stop, reason, {:error, reason}, state}
@@ -192,7 +194,8 @@ defmodule Elsa.Group.Manager do
     {:reply, :ok, %{state | workers: new_workers, generation_id: nil}}
   end
 
-  def handle_info({:DOWN, ref, :process, _object, _reason}, state) do
+  def handle_info({:DOWN, ref, :process, object, reason}, state) do
+    Logger.debug(fn -> "#{__MODULE__}: worker death: #{inspect(object)} - #{inspect(reason)}" end)
     new_workers = WorkerManager.restart_worker(state.workers, ref, state)
 
     {:noreply, %{state | workers: new_workers}}
