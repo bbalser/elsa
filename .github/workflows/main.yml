@@ -4,23 +4,6 @@ on:
     branches:
       - master
 jobs:
-  formatter:
-    name: Formatter Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-elixir@v1.2.0
-        with:
-          otp-version: 21.3
-          elixir-version: 1.8.2
-      - name: Get dependencies
-        run: |
-          mix local.rebar --force
-          mix local.hex --force
-          mix deps.get
-      - name: Run formatter check
-        run: |
-          mix format --check-formatted
   unit:
     name: Unit Test
     runs-on: ubuntu-latest
@@ -74,6 +57,9 @@ jobs:
           mix local.rebar --force
           mix local.hex --force
           mix deps.get
+      - name: Run formatter
+        run: |
+          mix format --check-formatted
       - name: Run dialyzer
         run: |
           mix dialyzer
