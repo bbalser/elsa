@@ -1,0 +1,28 @@
+name: Master
+on:
+  push:
+    branches:
+      - master
+jobs:
+  dialyzer:
+    name: Cache PLT
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-elixir@v1.2.0
+        with:
+          otp-version: 21.3
+          elixir-version: 1.8.2
+      - name: Get dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+      - name: Retrieve PLT
+        uses: actions/cache@v1
+        with:
+          path: .plt
+          key: plt-master
+      - name: Run dialyzer
+        run: |
+          mix dialyzer
