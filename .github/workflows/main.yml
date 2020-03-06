@@ -51,7 +51,11 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .plt
-          key: dialyzer-plt
+          key: plt-${{ github.head_ref }}
+          restore-keys: |
+            plt-${{ github.base_ref }}
+            plt-master
+            plt-
       - name: Get dependencies
         run: |
           mix local.rebar --force
