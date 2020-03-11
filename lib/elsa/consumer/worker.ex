@@ -128,6 +128,10 @@ defmodule Elsa.Consumer.Worker do
     {:stop, reason, state}
   end
 
+  def terminate(_reason, %{consumer_pid: nil} = state) do
+    state
+  end
+
   def terminate(reason, state) do
     :brod_consumer.unsubscribe(state.consumer_pid, self())
     Process.exit(state.consumer_pid, reason)
