@@ -45,12 +45,17 @@ defmodule Elsa.Topic do
   @spec create(keyword(), String.t(), keyword()) :: :ok | {:error, term()}
   def create(endpoints, topic, opts \\ []) do
     with_connection(endpoints, :controller, fn connection ->
+      config =
+        opts
+        |> Keyword.get(:config, [])
+        |> Enum.map(fn {key, val} -> %{config_key: to_string(key), config_value: val} end)
+
       create_topic_args = %{
         topic: topic,
         num_partitions: Keyword.get(opts, :partitions, 1),
         replication_factor: Keyword.get(opts, :replicas, 1),
         replica_assignment: [],
-        config_entries: []
+        config_entries: config
       }
 
       version = Elsa.Util.get_api_version(connection, :create_topics)
