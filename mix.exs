@@ -4,7 +4,7 @@ defmodule Elsa.MixProject do
   def project do
     [
       app: :elsa,
-      version: "0.12.1",
+      version: "0.12.2",
       elixir: "~> 1.8",
       start_permanent: Mix.env() == :prod,
       description: description(),
