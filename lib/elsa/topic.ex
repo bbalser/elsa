@@ -48,7 +48,7 @@ defmodule Elsa.Topic do
       config =
         opts
         |> Keyword.get(:config, [])
-        |> Enum.map(fn {key, val} -> %{config_key: to_string(key), config_value: val} end)
+        |> Enum.map(fn {key, val} -> %{config_name: to_string(key), config_value: val} end)
 
       create_topic_args = %{
         topic: topic,
