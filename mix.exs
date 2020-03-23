@@ -11,6 +11,10 @@ defmodule Elsa.MixProject do
       package: package(),
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: [:rustler] ++ Mix.compilers(),
+      ruster_crates: [
+        rust_rdkafa: []
+      ],
       test_paths: test_paths(Mix.env()),
       dialyzer: [plt_file: {:no_warn, ".plt/dialyzer.plt"}]
     ]
