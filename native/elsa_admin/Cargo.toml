@@ -1,0 +1,15 @@
+[package]
+name = "elsa_admin"
+version = "0.1.0"
+authors = []
+edition = "2018"
+
+[lib]
+name = "elsa_admin"
+path = "src/lib.rs"
+crate-type = ["dylib"]
+
+[dependencies]
+rustler = "0.21.0"
+lazy_static = "1.0"
+rdkafka = { version = "0.23", features = ["cmake-build"] }

@@ -4,7 +4,7 @@ defmodule Elsa.MixProject do
   def project do
     [
       app: :elsa,
-      version: "0.12.3",
+      version: "0.13.0",
       elixir: "~> 1.8",
       start_permanent: Mix.env() == :prod,
       description: description(),
@@ -12,25 +12,26 @@ defmodule Elsa.MixProject do
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:rustler] ++ Mix.compilers(),
-      ruster_crates: [
-        rust_rdkafa: []
-      ],
+      rustler_crates: rustler_crates(),
       test_paths: test_paths(Mix.env()),
       dialyzer: [plt_file: {:no_warn, ".plt/dialyzer.plt"}]
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  defp rustler_crates do
+    [elsa_admin: []]
+  end
+
   defp deps do
     [
       {:brod, "~> 3.9"},
+      {:rustler, "~> 0.21.0"},
       {:patiently, "~> 0.2", only: [:dev, :test, :integration]},
       {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
       {:divo_kafka, "~> 0.1.0", only: [:dev, :test, :integration]},
