@@ -12,7 +12,7 @@ mod atoms {
 rustler::rustler_export_nifs! {
     "Elixir.Elsa.Admin",
     [
-        ("add", 2, add)
+        ("describe_topic", 2, describe_topic)
     ],
     None
 }
@@ -22,4 +22,8 @@ fn add<'a>(env: Env<'a>, args: &[Term<'a>]) -> Result<Term<'a>, Error> {
     let num2: i64 = args[1].decode()?;
 
     Ok((atoms::ok(), num1 + num2).encode(env))
+}
+
+fn describe_topic<'a>(env: Env<'a>, args: &[Term<'a>]) -> Result<Term<'a>, Error> {
+    let brokers:
 }

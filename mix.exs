@@ -25,7 +25,7 @@ defmodule Elsa.MixProject do
   end
 
   defp rustler_crates do
-    [elsa_admin: []]
+    [elsa_admin: [mode: (if Mix.env == :prod, do: :release, else: :debug)]]
   end
 
   defp deps do
