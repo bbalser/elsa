@@ -10,6 +10,7 @@ path = "src/lib.rs"
 crate-type = ["dylib"]
 
 [dependencies]
-rustler = "0.21.0"
+futures = { version = "0.3", features = ["compat"] }
 lazy_static = "1.0"
 rdkafka = { version = "0.23", features = ["cmake-build"] }
+rustler = "0.21.0"
