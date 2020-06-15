@@ -21,7 +21,7 @@ defmodule Elsa.Producer do
   perspective of the compiler, even single-message iolists must be wrapped in an additional list in order to
   be produced. Internally, all messages are converted to a map before being encoded and produced.
   """
-  @type message :: {iodata(), iodata()} | binary() | %{key: iodata(), value: iodata()} | [iolist()]
+  @type message :: {iodata(), iodata()} | binary() | %{key: iodata(), value: iodata()}
 
   alias Elsa.Util
 
@@ -32,7 +32,7 @@ defmodule Elsa.Producer do
   @spec produce(
           Elsa.endpoints() | Elsa.connection(),
           Elsa.topic(),
-          message() | [message()],
+          message() | [message()] | [iolist()],
           keyword()
         ) :: :ok | {:error, term} | {:error, String.t(), [Elsa.Message.elsa_message()]}
   def produce(endpoints_or_connection, topic, messages, opts \\ [])
