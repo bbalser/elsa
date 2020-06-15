@@ -1,4 +1,4 @@
-ExUnit.start(exclude: [:skip])
+ExUnit.start(exclude: [:skip], capture_log: true)
 
 defmodule AsyncAssertion do
   require Logger
