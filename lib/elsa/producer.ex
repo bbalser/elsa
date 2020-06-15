@@ -14,6 +14,15 @@ defmodule Elsa.Producer do
       from the total available topic partitions or assign an integer based on an md5 hash of the messages.
   """
 
+  @typedoc """
+  Elsa messages can take a number of different forms, including a single binary, a key/value tuple, a map
+  including `:key` and `:value` keys, or a list of iolists. Because Elsa supports both single messages and
+  lists of messages and because an iolist is indistinguishable from a list of other message types from the
+  perspective of the compiler, even single-message iolists must be wrapped in an additional list in order to
+  be produced. Internally, all messages are converted to a map before being encoded and produced.
+  """
+  @type message :: {iodata(), iodata()} | binary() | %{key: iodata(), value: iodata()}
+
   alias Elsa.Util
 
   @doc """
@@ -23,7 +32,7 @@ defmodule Elsa.Producer do
   @spec produce(
           Elsa.endpoints() | Elsa.connection(),
           Elsa.topic(),
-          {term(), term()} | term() | [{term(), term()}] | [term()],
+          message() | [message()] | [iolist()],
           keyword()
         ) :: :ok | {:error, term} | {:error, String.t(), [Elsa.Message.elsa_message()]}
   def produce(endpoints_or_connection, topic, messages, opts \\ [])
@@ -68,9 +77,14 @@ defmodule Elsa.Producer do
     end
   end
 
-  defp transform_message(%{key: _key, value: _value} = msg), do: msg
-  defp transform_message({key, value}), do: %{key: key, value: value}
-  defp transform_message(message), do: %{key: "", value: message}
+  defp transform_message(%{key: _key, value: _value} = msg) do
+    msg
+    |> Map.update!(:key, &IO.iodata_to_binary/1)
+    |> Map.update!(:value, &IO.iodata_to_binary/1)
+  end
+
+  defp transform_message({key, value}), do: %{key: IO.iodata_to_binary(key), value: IO.iodata_to_binary(value)}
+  defp transform_message(message), do: %{key: "", value: IO.iodata_to_binary(message)}
 
   defp do_produce_sync(connection, topic, messages, opts) do
     Elsa.Util.with_registry(connection, fn registry ->

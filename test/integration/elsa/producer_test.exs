@@ -135,11 +135,12 @@ defmodule Elsa.ProducerTest do
     test "produces to the specified topic with no prior broker" do
       Elsa.create_topic(@brokers, "producer-topic3")
 
-      Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", "value2"}], partition: 0)
+      iolist_message = [<<0, 0, 0, 0, 10>>, [[20], [[[[0], ['H', "id-token"]]]]]]
+      Producer.produce(@brokers, "producer-topic3", [{"key1", "value1"}, {"key2", iolist_message}], partition: 0)
 
       parsed_messages = retrieve_results(@brokers, "producer-topic3", 0, 0)
 
-      assert [{"key1", "value1"}, {"key2", "value2"}] == parsed_messages
+      assert [{"key1", "value1"}, {"key2", IO.iodata_to_binary(iolist_message)}] == parsed_messages
     end
   end
 

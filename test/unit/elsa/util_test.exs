@@ -72,7 +72,7 @@ defmodule Elsa.UtilTest do
   end
 
   describe "chunk_by_byte_size" do
-    test "will create chunks that are less then suppliec chunk_byte_size" do
+    test "will create chunks that are less then supplied chunk_byte_size" do
       chunks =
         ?a..?z
         |> Enum.map(&to_message/1)
