@@ -120,12 +120,7 @@ defmodule Elsa.Supervisor do
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(args) do
-    opts =
-      case Keyword.has_key?(args, :name) do
-        true -> [name: Keyword.fetch!(args, :name)]
-        false -> []
-      end
-
+    opts = Keyword.take(args, [:name])
     Supervisor.start_link(__MODULE__, args, opts)
   end
 
