@@ -14,6 +14,15 @@ defmodule Elsa.Producer do
       from the total available topic partitions or assign an integer based on an md5 hash of the messages.
   """
 
+  @typedoc """
+  Elsa messages can take a number of different forms, including a single binary, a key/value tuple, a map
+  including `:key` and `:value` keys, or a list of iolists. Because Elsa supports both single messages and
+  lists of messages and because an iolist is indistinguishable from a list of other message types from the
+  perspective of the compiler, even single-message iolists must be wrapped in an additional list in order to
+  be produced. Internally, all messages are converted to a map before being encoded and produced.
+  """
+  @type message :: {iodata(), iodata()} | binary() | %{key: iodata(), value: iodata()} | [iolist()]
+
   alias Elsa.Util
 
   @doc """
@@ -23,7 +32,7 @@ defmodule Elsa.Producer do
   @spec produce(
           Elsa.endpoints() | Elsa.connection(),
           Elsa.topic(),
-          {iodata(), iodata()} | binary() | [{iodata(), iodata()}] | [iodata()],
+          message() | [message()],
           keyword()
         ) :: :ok | {:error, term} | {:error, String.t(), [Elsa.Message.elsa_message()]}
   def produce(endpoints_or_connection, topic, messages, opts \\ [])
