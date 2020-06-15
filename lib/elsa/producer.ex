@@ -23,7 +23,7 @@ defmodule Elsa.Producer do
   @spec produce(
           Elsa.endpoints() | Elsa.connection(),
           Elsa.topic(),
-          {term(), term()} | term() | [{term(), term()}] | [term()],
+          {iodata(), iodata()} | binary() | [{iodata(), iodata()}] | [iodata()],
           keyword()
         ) :: :ok | {:error, term} | {:error, String.t(), [Elsa.Message.elsa_message()]}
   def produce(endpoints_or_connection, topic, messages, opts \\ [])
@@ -68,9 +68,14 @@ defmodule Elsa.Producer do
     end
   end
 
-  defp transform_message(%{key: _key, value: _value} = msg), do: msg
-  defp transform_message({key, value}), do: %{key: key, value: value}
-  defp transform_message(message), do: %{key: "", value: message}
+  defp transform_message(%{key: _key, value: _value} = msg) do
+    msg
+    |> Map.update!(:key, fn key -> IO.iodata_to_binary(key) end)
+    |> Map.update!(:value, fn value -> IO.iodata_to_binary(value) end)
+  end
+
+  defp transform_message({key, value}), do: %{key: IO.iodata_to_binary(key), value: IO.iodata_to_binary(value)}
+  defp transform_message(message), do: %{key: "", value: IO.iodata_to_binary(message)}
 
   defp do_produce_sync(connection, topic, messages, opts) do
     Elsa.Util.with_registry(connection, fn registry ->

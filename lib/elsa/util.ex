@@ -174,13 +174,11 @@ defmodule Elsa.Util do
   end
 
   defp get_byte_size(%{key: key, value: value} = msg) do
-    io_safe_value = IO.iodata_to_binary(value)
-
     header_size =
       Map.get(msg, :headers, [])
-      |> Enum.map(fn {key, value} -> byte_size(key) + byte_size(io_safe_value) end)
+      |> Enum.map(fn {key, value} -> byte_size(key) + byte_size(value) end)
       |> Enum.sum()
 
-    byte_size(key) + byte_size(io_safe_value) + header_size
+    byte_size(key) + byte_size(value) + header_size
   end
 end

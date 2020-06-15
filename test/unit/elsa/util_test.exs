@@ -95,25 +95,7 @@ defmodule Elsa.UtilTest do
       assert Enum.at(chunks, 1) == ?j..?r |> Enum.map(&to_message(&1, key: true))
       assert Enum.at(chunks, 2) == ?s..?z |> Enum.map(&to_message(&1, key: true))
     end
-
-    test "will create chunks of IO list data" do
-      chunks =
-        ?a..?z
-        |> Enum.map(&to_iolist_message/1)
-        |> Elsa.Util.chunk_by_byte_size(20 + 10 * 10)
-
-      assert length(chunks) == 7
-      assert Enum.at(chunks, 0) == ?a..?d |> Enum.map(&to_iolist_message/1)
-      assert Enum.at(chunks, 1) == ?e..?h |> Enum.map(&to_iolist_message/1)
-      assert Enum.at(chunks, 2) == ?i..?l |> Enum.map(&to_iolist_message/1)
-      assert Enum.at(chunks, 3) == ?m..?p |> Enum.map(&to_iolist_message/1)
-      assert Enum.at(chunks, 4) == ?q..?t |> Enum.map(&to_iolist_message/1)
-      assert Enum.at(chunks, 5) == ?u..?x |> Enum.map(&to_iolist_message/1)
-      assert Enum.at(chunks, 6) == ?y..?z |> Enum.map(&to_iolist_message/1)
-    end
   end
-
-  #
 
   defp to_message(char, opts \\ []) do
     string = List.to_string([char])
@@ -125,17 +107,5 @@ defmodule Elsa.UtilTest do
       end
 
     %{key: key, value: string}
-  end
-
-  defp to_iolist_message(char, opts \\ []) do
-    payload = [<<0, 0, 0, 0, char>>, [[char], [[[[0], ['H', "id-token"]], [[2], ""]]]]]
-
-    key =
-      case Keyword.get(opts, :key, false) do
-        true -> List.to_string([char])
-        false -> ""
-      end
-
-    %{key: key, value: payload}
   end
 end
