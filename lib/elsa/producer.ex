@@ -124,8 +124,8 @@ defmodule Elsa.Producer do
       case Keyword.get(opts, :partition) do
         nil ->
           {:ok, partition_num} = :brod_client.get_partitions_count(client, topic)
-          partitioner = Keyword.get(opts, :partitioner, :default)
-          {:ok, fn %{key: key} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end}
+          partitioner = Keyword.get(opts, :partitioner, Elsa.Partitioner.Default)
+          {:ok, fn %{key: key} -> partitioner.partition(partition_num, key) end}
 
         partition ->
           {:ok, fn _msg -> partition end}
