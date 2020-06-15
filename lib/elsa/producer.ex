@@ -138,14 +138,24 @@ defmodule Elsa.Producer do
       case Keyword.get(opts, :partition) do
         nil ->
           {:ok, partition_num} = :brod_client.get_partitions_count(client, topic)
-          partitioner = Keyword.get(opts, :partitioner, :default)
-          {:ok, fn %{key: key} -> Elsa.Producer.Partitioner.partition(partitioner, partition_num, key) end}
+          partitioner = Keyword.get(opts, :partitioner, Elsa.Partitioner.Default) |> remap_deprecated()
+          {:ok, fn %{key: key} -> partitioner.partition(partition_num, key) end}
 
         partition ->
           {:ok, fn _msg -> partition end}
       end
     end)
   end
+
+  @partitioners %{default: Elsa.Partitioner.Default, md5: Elsa.Partitioner.Md5, random: Elsa.Partitioner.Random}
+
+  defp remap_deprecated(key) when key in [:default, :md5, :random] do
+    mod = Map.get(@partitioners, key)
+    Logger.warn(fn -> ":#{key} partitioner is deprecated. Use #{mod} instead." end)
+    mod
+  end
+
+  defp remap_deprecated(key), do: key
 
   defp brod_produce(registry, topic, partition, messages) do
     producer = :"producer_#{topic}_#{partition}"

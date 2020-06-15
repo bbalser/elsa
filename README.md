@@ -70,6 +70,10 @@ Consumers and consumer groups, in contrast, have a one-to-one relationship to an
 tree, therefore you cannot define a nested list of `consumer` or `group_consumer` keyword arguments
 within your Elsa configuration.
 
+### Example
+
+You can find an example of configuring and using Elsa [here](https://github.com/jdenen/let_it_go).
+
 ## Testing
 
 Elsa uses the standard ExUnit testing library for unit testing. For integration testing interactions with Kafka, it uses the [`divo`](https://github.com/smartcitiesdata/divo) library. Run tests with the command `mix test.integration`.
