@@ -70,8 +70,8 @@ defmodule Elsa.Producer do
 
   defp transform_message(%{key: _key, value: _value} = msg) do
     msg
-    |> Map.update!(:key, fn key -> IO.iodata_to_binary(key) end)
-    |> Map.update!(:value, fn value -> IO.iodata_to_binary(value) end)
+    |> Map.update!(:key, &IO.iodata_to_binary/1)
+    |> Map.update!(:value, &IO.iodata_to_binary/1)
   end
 
   defp transform_message({key, value}), do: %{key: IO.iodata_to_binary(key), value: IO.iodata_to_binary(value)}
