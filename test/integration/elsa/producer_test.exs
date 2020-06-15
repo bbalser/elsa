@@ -153,7 +153,9 @@ defmodule Elsa.ProducerTest do
 
       on_exit(fn -> assert_down(supervisor) end)
 
-      patient_produce(connection, "random-topic", [{"key1", "value1"}, {"key2", "value2"}], partitioner: :random)
+      patient_produce(connection, "random-topic", [{"key1", "value1"}, {"key2", "value2"}],
+        partitioner: Elsa.Partitioner.Random
+      )
 
       parsed_messages = retrieve_results(@brokers, "random-topic", 0, 0)
 
@@ -169,9 +171,26 @@ defmodule Elsa.ProducerTest do
 
       on_exit(fn -> assert_down(supervisor) end)
 
-      patient_produce(connection, "hashed-topic", {"key", "value"}, partitioner: :md5)
+      patient_produce(connection, "hashed-topic", {"key", "value"}, partitioner: Elsa.Partitioner.Md5)
 
       parsed_messages = retrieve_results(@brokers, "hashed-topic", 1, 0)
+
+      assert [{"key", "value"}] == parsed_messages
+    end
+
+    test "are backwards compatible with the old naming scheme" do
+      topic = "old-default-topic"
+      connection = :elsa_test_old_partitioner_name
+
+      Elsa.create_topic(@brokers, topic)
+
+      {:ok, supervisor} =
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
+
+      on_exit(fn -> assert_down(supervisor) end)
+      patient_produce(connection, topic, {"key", "value"}, partitioner: :default)
+
+      parsed_messages = retrieve_results(@brokers, topic, 0, 0)
 
       assert [{"key", "value"}] == parsed_messages
     end
