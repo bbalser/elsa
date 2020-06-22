@@ -136,13 +136,13 @@ defmodule Elsa.Supervisor do
 
   * `:config` - Optional. Producer configuration options passed to `brod_producer`.
   """
-  @spec start_producer(String.t() | atom, keyword) :: :ok
+  @spec start_producer(String.t() | atom, keyword) :: [DynamicSupervisor.on_start_child()]
   def start_producer(connection, args) do
     registry = registry(connection)
     process_manager = via_name(registry, :producer_process_manager)
 
     Elsa.Producer.Initializer.init(registry, args)
-    |> Enum.each(&Elsa.DynamicProcessManager.start_child(process_manager, &1))
+    |> Enum.map(&Elsa.DynamicProcessManager.start_child(process_manager, &1))
   end
 
   def init(args) do
