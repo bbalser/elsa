@@ -124,6 +124,27 @@ defmodule Elsa.Supervisor do
     Supervisor.start_link(__MODULE__, args, opts)
   end
 
+  @doc """
+  Starts producer processes under Elsa's `DynamicSupervisor` for the specified connection.
+
+  Polling cannot be setup for producers added at runtime, but otherwise, producer configuration
+  is the same as `Elsa.Supervisor.start_link/1`.
+
+  ## Producer Config
+
+  * `:topic` - Required. Producer will be started for configured topic.
+
+  * `:config` - Optional. Producer configuration options passed to `brod_producer`.
+  """
+  @spec start_producer(String.t() | atom, keyword) :: :ok
+  def start_producer(connection, args) do
+    registry = registry(connection)
+    process_manager = via_name(registry, :producer_process_manager)
+
+    Elsa.Producer.Initializer.init(registry, args)
+    |> Enum.each(&Elsa.DynamicProcessManager.start_child(process_manager, &1))
+  end
+
   def init(args) do
     connection = Keyword.fetch!(args, :connection)
     registry = registry(connection)
@@ -133,7 +154,7 @@ defmodule Elsa.Supervisor do
         {Elsa.Registry, name: registry},
         {DynamicSupervisor, strategy: :one_for_one, name: dynamic_supervisor(registry)},
         start_client(args),
-        start_producer(registry, Keyword.get(args, :producer)),
+        producer_spec(registry, Keyword.get(args, :producer)),
         start_group_consumer(connection, registry, Keyword.get(args, :group_consumer)),
         start_consumer(connection, registry, Keyword.get(args, :consumer))
       ]
@@ -186,9 +207,18 @@ defmodule Elsa.Supervisor do
      initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}}
   end
 
-  defp start_producer(_registry, nil), do: []
+  defp producer_spec(registry, nil) do
+    [
+      {Elsa.DynamicProcessManager,
+       id: :producer_process_manager,
+       dynamic_supervisor: dynamic_supervisor(registry),
+       initializer: nil,
+       poll: false,
+       name: via_name(registry, :producer_process_manager)}
+    ]
+  end
 
-  defp start_producer(registry, args) do
+  defp producer_spec(registry, args) do
     [
       {Elsa.DynamicProcessManager,
        id: :producer_process_manager,
