@@ -220,7 +220,6 @@ defmodule Elsa.ProducerTest do
       )
 
       Elsa.Supervisor.start_producer(connection, topic: topic1)
-      Process.sleep(10_000)
 
       patient_produce(connection, topic1, {"key1", "value1"}, [])
 
@@ -228,7 +227,6 @@ defmodule Elsa.ProducerTest do
       assert {"key1", "value1"} in messages
 
       Elsa.Supervisor.start_producer(connection, topic: topic2)
-      Process.sleep(10_000)
 
       patient_produce(connection, topic2, {"key2", "value2"}, [])
 
@@ -260,7 +258,7 @@ defmodule Elsa.ProducerTest do
         end
       end,
       dwell: 100,
-      max_retries: 5
+      max_retries: 50
     )
   end
 
@@ -273,8 +271,4 @@ end
 
 defmodule Testing.SuperSimpleMessageHandler do
   use Elsa.Consumer.MessageHandler
-
-  def handle_messages(_messages) do
-    :ack
-  end
 end
