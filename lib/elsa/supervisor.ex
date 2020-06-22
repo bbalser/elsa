@@ -127,8 +127,9 @@ defmodule Elsa.Supervisor do
   @doc """
   Starts producer processes under Elsa's `DynamicSupervisor` for the specified connection.
 
-  Polling cannot be setup for producers added at runtime, but otherwise, producer configuration
-  is the same as `Elsa.Supervisor.start_link/1`.
+  Polling cannot be configured for producers at runtime. Configuration at `Elsa.Supervisor` start
+  is how polling will behave for all producers on that connection. Other than polling, producer
+  configuration is the same as `Elsa.Supervisor.start_link/1`.
 
   ## Producer Config
 
@@ -154,7 +155,7 @@ defmodule Elsa.Supervisor do
         {Elsa.Registry, name: registry},
         {DynamicSupervisor, strategy: :one_for_one, name: dynamic_supervisor(registry)},
         start_client(args),
-        producer_spec(registry, Keyword.get(args, :producer)),
+        producer_spec(registry, Keyword.get(args, :producer, [])),
         start_group_consumer(connection, registry, Keyword.get(args, :group_consumer)),
         start_consumer(connection, registry, Keyword.get(args, :consumer))
       ]
@@ -207,25 +208,22 @@ defmodule Elsa.Supervisor do
      initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}}
   end
 
-  defp producer_spec(registry, nil) do
-    [
-      {Elsa.DynamicProcessManager,
-       id: :producer_process_manager,
-       dynamic_supervisor: dynamic_supervisor(registry),
-       initializer: nil,
-       poll: false,
-       name: via_name(registry, :producer_process_manager)}
-    ]
-  end
-
   defp producer_spec(registry, args) do
+    initializer =
+      case Keyword.take(args, [:topic, :config]) do
+        [] -> nil
+        init_args -> {Elsa.Producer.Initializer, :init, [registry, init_args]}
+      end
+
     [
-      {Elsa.DynamicProcessManager,
-       id: :producer_process_manager,
-       dynamic_supervisor: dynamic_supervisor(registry),
-       initializer: {Elsa.Producer.Initializer, :init, [registry, args]},
-       poll: Keyword.get(args, :poll, false),
-       name: via_name(registry, :producer_process_manager)}
+      {
+        Elsa.DynamicProcessManager,
+        id: :producer_process_manager,
+        dynamic_supervisor: dynamic_supervisor(registry),
+        initializer: initializer,
+        poll: Keyword.get(args, :poll, false),
+        name: via_name(registry, :producer_process_manager)
+      }
     ]
   end
 end
