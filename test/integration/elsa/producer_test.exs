@@ -197,6 +197,44 @@ defmodule Elsa.ProducerTest do
     end
   end
 
+  describe "adding producers to an established connection" do
+    test "produces messages without issue" do
+      connection = :elsa_established_connection_test
+
+      topic1 = "dynamic-producer-topic1"
+      Elsa.create_topic(@brokers, topic1)
+
+      topic2 = "dynamic-producer-topic2"
+      Elsa.create_topic(@brokers, topic2)
+
+      start_supervised(
+        {Elsa.Supervisor,
+         endpoints: @brokers,
+         connection: connection,
+         group_consumer: [
+           group: "dynamic-producer-group",
+           topics: [topic1],
+           handler: Testing.SuperSimpleMessageHandler,
+           config: [begin_offset: :earliest]
+         ]}
+      )
+
+      Elsa.Supervisor.start_producer(connection, topic: topic1)
+
+      patient_produce(connection, topic1, {"key1", "value1"}, [])
+
+      messages = retrieve_results(@brokers, topic1, 0, 0)
+      assert {"key1", "value1"} in messages
+
+      Elsa.Supervisor.start_producer(connection, topic: topic2)
+
+      patient_produce(connection, topic2, {"key2", "value2"}, [])
+
+      messages = retrieve_results(@brokers, topic2, 0, 0)
+      assert {"key2", "value2"} in messages
+    end
+  end
+
   describe "no producer started" do
     test "will return error when no client has been started" do
       Elsa.create_topic(@brokers, "bad-topic")
@@ -220,7 +258,7 @@ defmodule Elsa.ProducerTest do
         end
       end,
       dwell: 100,
-      max_retries: 5
+      max_retries: 50
     )
   end
 
@@ -229,4 +267,8 @@ defmodule Elsa.ProducerTest do
 
     Enum.map(messages, fn msg -> {Elsa.Message.kafka_message(msg, :key), Elsa.Message.kafka_message(msg, :value)} end)
   end
+end
+
+defmodule Testing.SuperSimpleMessageHandler do
+  use Elsa.Consumer.MessageHandler
 end
