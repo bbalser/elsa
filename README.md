@@ -18,7 +18,7 @@ The package can be installed by adding `elsa` to your list of dependencies in `m
 ```elixir
 def deps do
   [
-    {:elsa, "~> 0.11"}
+    {:elsa, "~> 1.0.0-rc.1"}
   ]
 end
 ```
