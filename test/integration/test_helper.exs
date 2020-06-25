@@ -1,4 +1,4 @@
-ExUnit.start()
+ExUnit.start(capture_log: true)
 
 defmodule AsyncAssertion do
   require Logger
