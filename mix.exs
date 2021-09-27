@@ -30,14 +30,14 @@ defmodule Elsa.MixProject do
 
   defp deps do
     [
-      {:brod, "~> 3.14"},
+      {:brod, "~> 3.16"},
       {:patiently, "~> 0.2", only: [:dev, :test, :integration]},
-      {:divo, "~> 1.1", only: [:dev, :test, :integration], override: true},
-      {:divo_kafka, "~> 0.1.0", only: [:dev, :test, :integration]},
-      {:placebo, "~> 2.0.0-rc.2", only: [:dev, :test]},
+      {:divo, "~> 1.3", only: [:dev, :test, :integration], override: true},
+      {:divo_kafka, "~> 0.1.7", only: [:dev, :test, :integration]},
+      {:placebo, "~> 2.0", only: [:dev, :test]},
       {:checkov, "~> 1.0", only: [:test, :integration]},
-      {:ex_doc, "~> 0.22.1", only: [:dev]},
-      {:dialyxir, "~> 1.0.0", only: [:dev], runtime: false}
+      {:ex_doc, "~> 0.25.3", only: [:dev]},
+      {:dialyxir, "~> 1.1.0", only: [:dev], runtime: false}
     ]
   end
 

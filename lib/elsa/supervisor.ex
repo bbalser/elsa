@@ -155,7 +155,7 @@ defmodule Elsa.Supervisor do
         {Elsa.Registry, name: registry},
         {DynamicSupervisor, strategy: :one_for_one, name: dynamic_supervisor(registry)},
         start_client(args),
-        producer_spec(registry, Keyword.get(args, :producer, [])),
+        producer_spec(registry, Keyword.get(args, :producer)),
         start_group_consumer(connection, registry, Keyword.get(args, :group_consumer)),
         start_consumer(connection, registry, Keyword.get(args, :consumer))
       ]
@@ -208,19 +208,26 @@ defmodule Elsa.Supervisor do
      initializer: {Elsa.Consumer.Worker.Initializer, :init, [consumer_args]}}
   end
 
-  defp producer_spec(registry, args) do
-    initializer =
-      case Keyword.take(args, [:topic, :config]) do
-        [] -> nil
-        init_args -> {Elsa.Producer.Initializer, :init, [registry, init_args]}
-      end
-
+  defp producer_spec(registry, nil) do
     [
       {
         Elsa.DynamicProcessManager,
         id: :producer_process_manager,
         dynamic_supervisor: dynamic_supervisor(registry),
-        initializer: initializer,
+        initializer: nil,
+        poll: false,
+        name: via_name(registry, :producer_process_manager)
+      }
+    ]
+  end
+
+  defp producer_spec(registry, args) do
+    [
+      {
+        Elsa.DynamicProcessManager,
+        id: :producer_process_manager,
+        dynamic_supervisor: dynamic_supervisor(registry),
+        initializer: {Elsa.Producer.Initializer, :init, [registry, args]},
         poll: Keyword.get(args, :poll, false),
         name: via_name(registry, :producer_process_manager)
       }

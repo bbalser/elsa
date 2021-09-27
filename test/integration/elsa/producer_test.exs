@@ -13,12 +13,14 @@ defmodule Elsa.ProducerTest do
   describe "producer managers" do
     setup do
       topic = "producer-manager-test"
+      topic2 = "producer-test-secondary"
       connection = :elsa_producer_test2
 
       Elsa.create_topic(@brokers, topic)
+      Elsa.create_topic(@brokers, topic2)
 
       {:ok, supervisor} =
-        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [topic: topic])
+        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [[topic: topic], [topic: topic2]])
 
       Elsa.Producer.ready?(connection)
 
@@ -26,11 +28,12 @@ defmodule Elsa.ProducerTest do
         assert_down(supervisor)
       end)
 
-      [connection: connection, topic: topic, registry: Elsa.Supervisor.registry(connection)]
+      [connection: connection, topics: [topic, topic2], registry: Elsa.Supervisor.registry(connection)]
     end
 
-    test "restarts producers when the client is dropped", %{connection: connection, topic: topic, registry: registry} do
+    test "restarts producers when the client is dropped", %{connection: connection, topics: [topic, topic2], registry: registry} do
       message = "everything's fine here"
+      message = "also over here"
       client_pid = Elsa.Registry.whereis_name({registry, :brod_client})
       Process.exit(client_pid, :kill)
 
@@ -43,13 +46,16 @@ defmodule Elsa.ProducerTest do
       )
 
       Producer.produce(connection, topic, message)
+      Producer.produce(connection, topic2, message2)
 
       Patiently.wait_for!(
         fn ->
-          case Elsa.fetch(@brokers, topic) do
-            {:ok, 1, [%Elsa.Message{value: result}]} ->
-              message == result
-
+          with {:ok, 1, [%Elsa.Message{value: result}]} <- Elsa.fetch(@brokers, topic),
+               true <- message == result,
+               {:ok, 1, [%Elsa.Message{value: result2}]} <- Elsa.fetch(@brokers, topic2),
+               true <- message2 == result2 do
+            true
+          else
             _ ->
               false
           end

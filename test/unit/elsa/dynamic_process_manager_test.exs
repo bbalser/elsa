@@ -17,7 +17,7 @@ defmodule Elsa.DynamicProcessManagerTest do
     Process.sleep(1_000)
     assert 0 == Agent.get(:agent1, fn s -> s end)
 
-    assert {:ok, test_server} = Elsa.DynamicProcessManager.start_child(:pm, TestServer)
+    assert {:ok, _test_server} = Elsa.DynamicProcessManager.start_child(:pm, TestServer)
     assert "hello" == TestServer.echo(TestServer, "hello")
 
     Process.whereis(:dyn_sup)
@@ -44,7 +44,7 @@ defmodule Elsa.DynamicProcessManagerTest do
     Process.sleep(1_000)
     assert 0 == Agent.get(:agent1, fn s -> s end)
 
-    assert {:ok, test_server} = Elsa.DynamicProcessManager.start_child(:pm, TestServer)
+    assert {:ok, _test_server} = Elsa.DynamicProcessManager.start_child(:pm, TestServer)
     assert "hello" == TestServer.echo(TestServer, "hello")
 
     Process.whereis(:dyn_sup)
