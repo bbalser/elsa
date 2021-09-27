@@ -20,7 +20,11 @@ defmodule Elsa.ProducerTest do
       Elsa.create_topic(@brokers, topic2)
 
       {:ok, supervisor} =
-        Elsa.Supervisor.start_link(endpoints: @brokers, connection: connection, producer: [[topic: topic], [topic: topic2]])
+        Elsa.Supervisor.start_link(
+          endpoints: @brokers,
+          connection: connection,
+          producer: [[topic: topic], [topic: topic2]]
+        )
 
       Elsa.Producer.ready?(connection)
 
@@ -31,7 +35,11 @@ defmodule Elsa.ProducerTest do
       [connection: connection, topics: [topic, topic2], registry: Elsa.Supervisor.registry(connection)]
     end
 
-    test "restarts producers when the client is dropped", %{connection: connection, topics: [topic, topic2], registry: registry} do
+    test "restarts producers when the client is dropped", %{
+      connection: connection,
+      topics: [topic, topic2],
+      registry: registry
+    } do
       message = "everything's fine here"
       message2 = "also over here"
       client_pid = Elsa.Registry.whereis_name({registry, :brod_client})
