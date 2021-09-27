@@ -33,7 +33,7 @@ defmodule Elsa.ProducerTest do
 
     test "restarts producers when the client is dropped", %{connection: connection, topics: [topic, topic2], registry: registry} do
       message = "everything's fine here"
-      message = "also over here"
+      message2 = "also over here"
       client_pid = Elsa.Registry.whereis_name({registry, :brod_client})
       Process.exit(client_pid, :kill)
 
