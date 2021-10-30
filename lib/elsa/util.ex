@@ -119,7 +119,7 @@ defmodule Elsa.Util do
   end
   
   # Handle brod < 3.16
-  defp count_partitions(%{topic_metada: topic_metadata}) do
+  defp count_partitions(%{topic_metadata: topic_metadata}) do
     topic_metadata
     |> Enum.map(fn topic_metadata ->
       Enum.count(topic_metadata.partition_metadata)
