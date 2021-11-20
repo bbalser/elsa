@@ -12,7 +12,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: 22.3
-          elixir-version: 1.10
+          elixir-version: 1.10.4
       - name: Get depedencies
         run: |
           mix local.rebar --force
@@ -29,7 +29,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: 22.3
-          elixir-version: 1.10
+          elixir-version: 1.10.4
       - name: Get dependencies
         run: |
           mix local.rebar --force
@@ -46,7 +46,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: 22.3
-          elixir-version: 1.10
+          elixir-version: 1.10.4
       - name: Retrieve cached PLT
         uses: actions/cache@v1
         with:
