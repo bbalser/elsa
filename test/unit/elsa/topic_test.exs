@@ -26,11 +26,11 @@ defmodule Elsa.TopicTest do
       allow :kpro_req_lib.create_topics(any(), any(), any()), return: :topic_request
 
       message = %{
-        topic_errors: [
+        topics: [
           %{
             error_code: :topic_already_exists,
             error_message: "Topic 'elsa-topic' already exists.",
-            topic: "elsa-topic"
+            name: "elsa-topic"
           }
         ]
       }
@@ -54,10 +54,10 @@ defmodule Elsa.TopicTest do
       allow :kpro_req_lib.delete_topics(any(), any(), any()), return: :topic_request
 
       message = %{
-        topic_error_codes: [
+        responses: [
           %{
             error_code: :topic_doesnt_exist,
-            topic: "elsa-topic"
+            name: "elsa-topic"
           }
         ]
       }
@@ -70,21 +70,21 @@ defmodule Elsa.TopicTest do
 
       internal_result = function.(:connection)
 
-      assert {:error, {:topic_doesnt_exist, nil}} == internal_result
+      assert {:error, {:topic_doesnt_exist, :delete_topic_error}} == internal_result
     end
   end
 
   describe "list_topics/1" do
     test "extracts topics and partitions as a list of tuples" do
       metadata = %{
-        topic_metadata: [
+        topics: [
           %{
-            partition_metadata: [%{partition: 0}],
-            topic: "elsa-other-topic"
+            partitions: [%{partition: 0}],
+            name: "elsa-other-topic"
           },
           %{
-            partition_metadata: [%{partition: 0}, %{partition: 1}],
-            topic: "elsa-topic"
+            partitions: [%{partition: 0}, %{partition: 1}],
+            name: "elsa-topic"
           }
         ]
       }
@@ -102,14 +102,14 @@ defmodule Elsa.TopicTest do
   describe "exists?/2" do
     test "returns a boolean identifying the presence of a given topic" do
       metadata = %{
-        topic_metadata: [
+        topics: [
           %{
-            partition_metadata: [%{partition: 0}],
-            topic: "elsa-other-topic"
+            partitions: [%{partition: 0}],
+            name: "elsa-other-topic"
           },
           %{
-            partition_metadata: [%{partition: 0}, %{partition: 1}],
-            topic: "elsa-topic"
+            partitions: [%{partition: 0}, %{partition: 1}],
+            name: "elsa-topic"
           }
         ]
       }

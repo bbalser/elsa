@@ -25,8 +25,8 @@ defmodule Elsa.ConsumerTest do
 
     send_messages(topic, ["message1", "message2"])
 
-    assert_receive {:message, %{topic: topic, partition: 0, offset: _, key: "", value: "message1"}}, 5_000
-    assert_receive {:message, %{topic: topic, partition: 1, offset: _, key: "", value: "message2"}}, 5_000
+    assert_receive {:message, %{topic: ^topic, partition: 0, offset: _, key: "", value: "message1"}}, 5_000
+    assert_receive {:message, %{topic: ^topic, partition: 1, offset: _, key: "", value: "message2"}}, 5_000
   end
 
   test "Elsa.Consumer will hand messages to the handler without state" do

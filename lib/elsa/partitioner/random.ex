@@ -7,6 +7,6 @@ defmodule Elsa.Partitioner.Random do
   @behaviour Elsa.Partitioner
 
   def partition(count, _key) do
-    :crypto.rand_uniform(0, count)
+    :rand.uniform(count) - 1
   end
 end

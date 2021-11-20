@@ -1,7 +1,7 @@
 defmodule Elsa.MixProject do
   use Mix.Project
 
-  @version "1.0.0-rc.2"
+  @version "1.0.0-rc.3"
   @github "https://github.com/bbalser/elsa"
 
   def project do
@@ -30,7 +30,7 @@ defmodule Elsa.MixProject do
 
   defp deps do
     [
-      {:brod, "~> 3.14.0"},
+      {:brod, "~> 3.16"},
       {:patiently, "~> 0.2", only: [:dev, :test, :integration]},
       {:divo, "~> 1.3", only: [:dev, :test, :integration], override: true},
       {:divo_kafka, "~> 0.1.7", only: [:dev, :test, :integration]},
