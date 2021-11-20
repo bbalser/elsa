@@ -44,7 +44,9 @@ defmodule Elsa.Wrapper do
 
       {:error, reason} ->
         Logger.error(
-          "#{__MODULE__}:#{inspect(self())} : wrapped process #{inspect(state.mfa)} failed to init for reason #{inspect(reason)}"
+          "#{__MODULE__}:#{inspect(self())} : wrapped process #{inspect(state.mfa)} failed to init for reason #{
+            inspect(reason)
+          }"
         )
 
         Process.sleep(state.delay)

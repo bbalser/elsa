@@ -91,7 +91,9 @@ defmodule Elsa.Consumer.Worker do
     else
       {:error, reason} ->
         Logger.warn(
-          "Unable to subscribe to topic/partition/offset(#{state.topic}/#{state.partition}/#{state.offset}), reason #{inspect(reason)}"
+          "Unable to subscribe to topic/partition/offset(#{state.topic}/#{state.partition}/#{state.offset}), reason #{
+            inspect(reason)
+          }"
         )
 
         Process.sleep(@start_failure_delay)
@@ -172,7 +174,9 @@ defmodule Elsa.Consumer.Worker do
     case :brod_consumer.subscribe(consumer_pid, self(), opts) do
       {:error, reason} ->
         Logger.warn(
-          "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{inspect(reason)}"
+          "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
+            inspect(reason)
+          }"
         )
 
         Process.sleep(@subscribe_delay)

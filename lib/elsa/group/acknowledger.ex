@@ -102,7 +102,9 @@ defmodule Elsa.Group.Acknowledger do
 
       false ->
         Logger.warn(
-          "Invalid generation_id #{state.generation_id} == #{generation_id}, ignoring ack - topic #{topic} partition #{partition} offset #{offset}"
+          "Invalid generation_id #{state.generation_id} == #{generation_id}, ignoring ack - topic #{topic} partition #{
+            partition
+          } offset #{offset}"
         )
 
         {:noreply, state}
