@@ -109,21 +109,25 @@ defmodule Elsa.Util do
   def partition_count(endpoints, topic) when is_list(endpoints) do
     {:ok, metadata} = :brod.get_metadata(reformat_endpoints(endpoints), [topic])
 
-    metadata.topic_metadata
-    |> Enum.map(fn topic_metadata ->
-      Enum.count(topic_metadata.partition_metadata)
-    end)
-    |> hd()
+    count_partitions(metadata)
   end
 
   def partition_count(connection, topic) when is_atom(connection) or is_pid(connection) do
     {:ok, metadata} = :brod_client.get_metadata(connection, topic)
 
-    metadata.topic_metadata
-    |> Enum.map(fn topic_metadata ->
-      Enum.count(topic_metadata.partition_metadata)
-    end)
-    |> hd()
+    count_partitions(metadata)
+  end
+
+  # Handle brod < 3.16
+  defp count_partitions(%{topic_metadata: topic_metadatas}) do
+    [count | _] = for %{partition_metadata: metadata} <- topic_metadatas, do: Enum.count(metadata)
+    count
+  end
+
+  # Handle brod 3.16+
+  defp count_partitions(%{topics: topics}) do
+    [count | _] = for %{partitions: partitions} <- topics, do: Enum.count(partitions)
+    count
   end
 
   defp connect(endpoints, :controller), do: :kpro.connect_controller(endpoints, [])

@@ -16,9 +16,9 @@ defmodule Elsa.Topic do
     {:ok, metadata} = :brod.get_metadata(reformat_endpoints(endpoints), :all)
 
     topics =
-      metadata.topic_metadata
+      metadata.topics
       |> Enum.map(fn topic_metadata ->
-        {topic_metadata.topic, Enum.count(topic_metadata.partition_metadata)}
+        {topic_metadata.name, Enum.count(topic_metadata.partitions)}
       end)
 
     {:ok, topics}
@@ -48,14 +48,14 @@ defmodule Elsa.Topic do
       config =
         opts
         |> Keyword.get(:config, [])
-        |> Enum.map(fn {key, val} -> %{config_name: to_string(key), config_value: val} end)
+        |> Enum.map(fn {key, val} -> %{name: to_string(key), value: val} end)
 
       create_topic_args = %{
-        topic: topic,
+        name: topic,
         num_partitions: Keyword.get(opts, :partitions, 1),
         replication_factor: Keyword.get(opts, :replicas, 1),
-        replica_assignment: [],
-        config_entries: config
+        assignments: [],
+        configs: config
       }
 
       version = Elsa.Util.get_api_version(connection, :create_topics)
@@ -88,15 +88,18 @@ defmodule Elsa.Topic do
   defp check_response(response) do
     message = kpro_rsp(response, :msg)
 
-    error_key =
-      case Map.has_key?(message, :topic_errors) do
-        true -> :topic_errors
-        false -> :topic_error_codes
+    response_key =
+      case Map.has_key?(message, :topics) do
+        true -> :topics
+        false -> :responses
       end
 
-    case Enum.find(message[error_key], fn error -> error.error_code != :no_error end) do
+    case Enum.find(message[response_key], fn response -> response.error_code != :no_error end) do
       nil -> :ok
-      error -> {:error, {error.error_code, error[:error_message]}}
+      response -> {:error, {response.error_code, resp_error_msg(response, response_key)}}
     end
   end
+
+  defp resp_error_msg(response, :topics), do: response.error_message
+  defp resp_error_msg(_response, :responses), do: :delete_topic_error
 end
