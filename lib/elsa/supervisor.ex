@@ -65,7 +65,7 @@ defmodule Elsa.Supervisor do
 
   * `:handler` - Required. Module that implements Elsa.Consumer.MessageHandler behaviour.
 
-  * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
+  * `:handler_init_args` - Optional. Any args to be passed to init function in handler module, defaults to `%{}`.
 
   * `:assignment_received_handler` - Optional. Arity 4 Function that will be called with any partition assignments.
      Return `:ok` to for assignment to be subscribed to.  Return `{:error, reason}` to stop subscription.
@@ -87,7 +87,7 @@ defmodule Elsa.Supervisor do
 
   * `:partition` - Optional. Topic partition to subscribe to. If `nil`, will default to all partitions.
 
-  * `:handler_init_args` - Optional. Any args to be passed to init function in handler module.
+  * `:handler_init_args` - Optional. Any args to be passed to init function in handler module, defaults to `%{}`.
 
   * `:poll` - Optional. If set to number of milliseconds, will poll for new partitions and startup consumers on the fly.
 
