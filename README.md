@@ -1,5 +1,12 @@
 # Elsa
 
+[![Master](https://github.com/bbalser/elsa/actions/workflows/master.yml/badge.svg)](https://github.com/bbalser/elsa/actions/workflows/master.yml)
+[![Module Version](https://img.shields.io/hexpm/v/elsa.svg)](https://hex.pm/packages/elsa)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/elsa/)
+[![Total Download](https://img.shields.io/hexpm/dt/elsa.svg)](https://hex.pm/packages/elsa)
+[![License](https://img.shields.io/hexpm/l/elsa.svg)](https://github.com/bbalser/elsa/blob/master/LICENSE)
+[![Last Updated](https://img.shields.io/github/last-commit/bbalser/elsa.svg)](https://github.com/bbalser/elsa/commits/master)
+
 ## Description
 
 Elsa is a full-featured Kafka library written in Elixir and extending the `:brod` library with additional support from the `:kafka_protocol` Erlang libraries to provide capabilities not available in `:brod`.
@@ -13,12 +20,12 @@ As Elsa draws from the Brod library (named for Kafka friend and biographer Max B
 
 ## Installation
 
-The package can be installed by adding `elsa` to your list of dependencies in `mix.exs`:
+The package can be installed by adding `:elsa` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:elsa, "~> 1.0.0-rc.2"}
+    {:elsa, "~> 1.0.0-rc.3"}
   ]
 end
 ```
@@ -77,3 +84,17 @@ You can find an example of configuring and using Elsa [here](https://github.com/
 ## Testing
 
 Elsa uses the standard ExUnit testing library for unit testing. For integration testing interactions with Kafka, it uses the [`divo`](https://github.com/smartcitiesdata/divo) library. Run tests with the command `mix test.integration`.
+
+## Copyright and License
+
+Copyright (c) 2019 Brian Balser, Jeff Grunewald, and Johnson Denen
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

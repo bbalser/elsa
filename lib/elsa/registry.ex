@@ -61,7 +61,7 @@ defmodule Elsa.Registry do
   end
 
   @doc """
-  Start the Elsa registery process and link it to the current process.
+  Start the Elsa registry process and link it to the current process.
   Creates the process registry table in ETS and traps exits during the
   init process.
   """

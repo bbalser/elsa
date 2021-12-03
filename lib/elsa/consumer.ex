@@ -1,6 +1,6 @@
 defmodule Elsa.Consumer do
   @moduledoc """
-  Public api to consumer acks asynchronously for simple consumers
+  Public API to consumer acks asynchronously for simple consumers
   """
 
   import Elsa.Supervisor, only: [registry: 1]

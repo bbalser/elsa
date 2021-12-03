@@ -14,11 +14,11 @@ defmodule Elsa.MixProject do
       description: description(),
       package: package(),
       deps: deps(),
-      homepage: @github,
       docs: docs(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_paths: test_paths(Mix.env()),
-      dialyzer: [plt_file: {:no_warn, ".plt/#{System.version()}.plt"}]
+      dialyzer: [plt_file: {:no_warn, ".plt/#{System.version()}.plt"}],
+      preferred_cli_env: [docs: :docs]
     ]
   end
 
@@ -36,7 +36,7 @@ defmodule Elsa.MixProject do
       {:divo_kafka, "~> 0.1.7", only: [:dev, :test, :integration]},
       {:placebo, "~> 2.0", only: [:dev, :test]},
       {:checkov, "~> 1.0", only: [:test, :integration]},
-      {:ex_doc, "~> 0.25.3", only: [:dev]},
+      {:ex_doc, ">= 0.0.0", only: [:docs], runtime: false},
       {:dialyxir, "~> 1.1.0", only: [:dev], runtime: false}
     ]
   end
@@ -50,7 +50,7 @@ defmodule Elsa.MixProject do
   defp package do
     [
       maintainers: ["Brian Balser", "Jeff Grunewald", "Johnson Denen"],
-      licenses: ["Apache 2.0"],
+      licenses: ["Apache-2.0"],
       links: %{"GitHub" => @github}
     ]
   end
@@ -61,10 +61,15 @@ defmodule Elsa.MixProject do
 
   defp docs do
     [
-      source_ref: "v#{@version}",
+      extras: [
+        "LICENSE": [title: "License"],
+        "README.md": [title: "Overview"]
+      ],
+      main: "readme",
+      homepage_url: @github,
       source_url: @github,
-      extras: ["README.md"],
-      source_url_pattern: "#{@github}/blob/master/%{path}#L%{line}"
+      source_ref: "master",
+      formatters: ["html"]
     ]
   end
 end

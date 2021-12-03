@@ -10,7 +10,7 @@ defmodule Elsa.Producer do
     * If a list of messages is supplied as the value, the key is defaulted to an empty string binary.
     * Partition can be specified by the keyword option `partition:` and an integer corresponding to a specific
       partition, or the keyword option `partitioner:` and the atoms `:md5` or `:random`. The atoms
-      correspond to partitioner functions that will uniformely select a random partition
+      correspond to partitioner functions that will uniformly select a random partition
       from the total available topic partitions or assign an integer based on an md5 hash of the messages.
   """
 
