@@ -174,7 +174,7 @@ defmodule Elsa.Consumer.Worker do
     case :brod_consumer.subscribe(consumer_pid, self(), opts) do
       {:error, reason} ->
         Logger.warn(
-          "Retrying to subscribe to topic #{state.topic} parition #{state.partition} offset #{state.offset} reason #{
+          "Retrying to subscribe to topic #{state.topic} partition #{state.partition} offset #{state.offset} reason #{
             inspect(reason)
           }"
         )

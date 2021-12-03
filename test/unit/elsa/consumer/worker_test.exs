@@ -34,7 +34,7 @@ defmodule Elsa.Consumer.WorkerTest do
       [messages: messages, state: create_state(init_args)]
     end
 
-    data_test "handler can specifiy offset to ack", %{messages: messages, state: state} do
+    data_test "handler can specify offset to ack", %{messages: messages, state: state} do
       set_handler(fn messages ->
         offset = messages |> List.first() |> Map.get(:offset)
         {ack, offset}
