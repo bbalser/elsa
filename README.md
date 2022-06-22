@@ -74,6 +74,56 @@ within your Elsa configuration.
 
 You can find an example of configuring and using Elsa [here](https://github.com/jdenen/let_it_go).
 
+## Telemetry
+
+Starting with Elsa `1.0.0-rc.4` [`:telemetry`](https://github.com/beam-telemetry/telemetry) events are available.
+
+- `[:elsa, :consumer, :handle_messages, :start]` - dispatched by `Elsa.Consumer.Worker` before handling a list of messages.
+
+    - Measurement: `%{system_time: integer}`
+    - Metadata:
+      ```elixir
+      %{
+        topic: Elsa.topic(),
+        partition: Elsa.partition(),
+        generation_id: non_neg_integer,
+        offset: non_neg_integer,
+        messages: [Elsa.Message()]
+      }
+      ```
+
+- `[:elsa, :consumer, :handle_messages, :end]` - dispatched by `Elsa.Consumer.Worker` after handling a list of messages.
+
+    - Measurement: `%{duration: native_time}`
+    - Metadata:
+      ```elixir
+      %{
+        topic: Elsa.topic(),
+        partition: Elsa.partition(),
+        generation_id: non_neg_integer,
+        offset: non_neg_integer,
+        messages: [Elsa.Message()],
+        result: any
+      }
+      ```
+
+- `[:elsa, :consumer, :handle_messages, :exception]` - dispatched by `Elsa.Consumer.Worker` if an exception occures processing messages.
+
+    - Measurement: `%{duration: native_time}`
+    - Metadata:
+      ```elixir
+      %{
+        topic: Elsa.topic(),
+        partition: Elsa.partition(),
+        generation_id: non_neg_integer,
+        offset: non_neg_integer,
+        messages: [Elsa.Message()],
+        kind: kind,
+        reason: reason,
+        stacktrace: stacktrace,
+      }
+      ```
+
 ## Testing
 
 Elsa uses the standard ExUnit testing library for unit testing. For integration testing interactions with Kafka, it uses the [`divo`](https://github.com/smartcitiesdata/divo) library. Run tests with the command `mix test.integration`.
