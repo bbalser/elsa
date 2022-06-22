@@ -1,7 +1,7 @@
 defmodule Elsa.MixProject do
   use Mix.Project
 
-  @version "1.0.0-rc.3"
+  @version "1.0.0-rc.4"
   @github "https://github.com/bbalser/elsa"
 
   def project do
@@ -37,7 +37,8 @@ defmodule Elsa.MixProject do
       {:placebo, "~> 2.0", only: [:dev, :test]},
       {:checkov, "~> 1.0", only: [:test, :integration]},
       {:ex_doc, "~> 0.25.3", only: [:dev]},
-      {:dialyxir, "~> 1.1.0", only: [:dev], runtime: false}
+      {:dialyxir, "~> 1.1.0", only: [:dev], runtime: false},
+      {:telemetry, "~> 1.0"}
     ]
   end
 

@@ -143,7 +143,20 @@ defmodule Elsa.Consumer.Worker do
   end
 
   defp send_messages_to_handler(messages, state) do
-    state.handler.handle_messages(messages, state.handler_state)
+    :telemetry.span(
+      [:elsa, :consumer, :handle_messages],
+      %{
+        topic: state.topic,
+        partition: state.partition,
+        generation_id: state.generation_id,
+        offset: state.offset,
+        messages: messages
+      },
+      fn ->
+        result = state.handler.handle_messages(messages, state.handler_state)
+        {result, %{result: result}}
+      end
+    )
   end
 
   defp ack_messages(_topic, _partition, offset, %{generation_id: nil} = state) do
