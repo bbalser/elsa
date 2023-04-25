@@ -196,6 +196,7 @@ defmodule Elsa.Supervisor do
 
     consumer_args =
       args
+      |> Keyword.put(:worker_type, :non_group)
       |> Keyword.put(:registry, registry)
       |> Keyword.put(:connection, connection)
       |> Keyword.put(:topics, topics)
