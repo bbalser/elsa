@@ -58,6 +58,38 @@ defmodule Elsa.ConsumerTest do
     Supervisor.stop(pid)
   end
 
+  test "restarts a crashed worker that isn't in a group" do
+    topic = "consumer-test3"
+    Elsa.create_topic(@brokers, topic)
+
+    start_supervised!(
+      {Elsa.Supervisor,
+       connection: :name1,
+       endpoints: @brokers,
+       consumer: [
+         topic: topic,
+         handler: Testing.ExampleMessageHandlerWithState,
+         handler_init_args: %{pid: self()},
+         begin_offset: :earliest
+       ]}
+    )
+
+    send_messages(topic, ["message1"])
+    send_messages(topic, ["message2"])
+
+    assert_receive {:message, %{topic: ^topic, value: "message1"}}, 5_000
+    assert_receive {:message, %{topic: ^topic, value: "message2"}}, 5_000
+
+    kill_worker(topic)
+
+    send_messages(topic, ["message3"])
+    send_messages(topic, ["message4"])
+
+    # These assertions fail, because the worker wasn't brought back up.
+    assert_receive {:message, %{topic: ^topic, value: "message3"}}, 5_000
+    assert_receive {:message, %{topic: ^topic, value: "message4"}}, 5_000
+  end
+
   defp send_messages(topic, messages) do
     :brod.start_link_client(@brokers, :test_client)
     :brod.start_producer(:test_client, topic, [])
@@ -68,6 +100,15 @@ defmodule Elsa.ConsumerTest do
       partition = rem(index, 2)
       :brod.produce_sync(:test_client, topic, partition, "", msg)
     end)
+  end
+
+  defp kill_worker(topic) do
+    partition = 0
+
+    worker_pid = Elsa.Registry.whereis_name({:elsa_registry_name1, :"worker_#{topic}_#{partition}"})
+    Process.exit(worker_pid, :kill)
+
+    assert false == Process.alive?(worker_pid)
   end
 end
 

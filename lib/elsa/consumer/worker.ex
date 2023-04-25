@@ -6,7 +6,7 @@ defmodule Elsa.Consumer.Worker do
   passed in from the manager before calling the ack function to
   notify the cluster the messages have been successfully processed.
   """
-  use GenServer, restart: :temporary, shutdown: 10_000
+  use GenServer
   require Logger
 
   import Elsa.Supervisor, only: [registry: 1]
@@ -53,6 +53,28 @@ defmodule Elsa.Consumer.Worker do
   @spec start_link(init_opts) :: GenServer.on_start()
   def start_link(init_args) do
     GenServer.start_link(__MODULE__, init_args)
+  end
+
+  def child_spec(arg) do
+    {worker_type, init_arg} = Keyword.pop!(arg, :worker_type)
+
+    # Group workers are managed via the `Elsa.Group.Supervisor` supervision tree
+    # processes. If a process needs restarting, it gets handled there.
+    #
+    # Non-group consumers are on their own though and need their OTP supervisor
+    # to restart them if they crash.
+    restart =
+      case worker_type do
+        :group -> :temporary
+        :non_group -> :transient
+      end
+
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [init_arg]},
+      restart: restart,
+      shutdown: 10_000
+    }
   end
 
   def init(init_args) do
